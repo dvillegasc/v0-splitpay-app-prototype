@@ -114,9 +114,10 @@ export function DashboardView() {
                       background: "#131829",
                       border: "1px solid rgba(255,255,255,0.1)",
                       borderRadius: 12,
-                      color: "#f5f7fb",
                       fontSize: 12,
                     }}
+                    itemStyle={{ color: "#f5f7fb" }}
+                    labelStyle={{ color: "#f5f7fb" }}
                     formatter={(value: number) => [`${value}%`, "Participación"]}
                   />
                 </PieChart>
@@ -184,9 +185,10 @@ export function DashboardView() {
                     background: "#131829",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: 12,
-                    color: "#f5f7fb",
                     fontSize: 12,
                   }}
+                  itemStyle={{ color: "#f5f7fb" }}
+                  labelStyle={{ color: "#f5f7fb" }}
                   formatter={(value: number) => [formatCOP(value * 1000), "Aporte"]}
                 />
                 <Bar dataKey="aporte" radius={[8, 8, 8, 8]} />

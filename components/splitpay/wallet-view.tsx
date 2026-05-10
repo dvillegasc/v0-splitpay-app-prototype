@@ -1,58 +1,84 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, Settings2, Eye, EyeOff, Sparkles } from "lucide-react"
+import { useMemo, useState } from "react"
+import { ArrowLeft, Plus, Settings, Settings2, Eye, EyeOff, Sparkles } from "lucide-react"
 import { ExpenseCard, type Expense } from "./expense-card"
+import { wallets } from "./wallets-list-view"
 
-const wallet = {
-  name: "Casa Marinilla",
-  balance: 450000,
+const proportionsByWallet: Record<string, { name: string; percent: number; color: string }[]> = {
+  "casa-marinilla": [
+    { name: "David", percent: 40, color: "#00FF66" },
+    { name: "Sebastián", percent: 35, color: "#8A2BE2" },
+    { name: "Manuela", percent: 25, color: "#00D4FF" },
+  ],
+  "torneo-baloncesto": [
+    { name: "Capitán", percent: 20, color: "#00FF66" },
+    { name: "Equipo (7)", percent: 80, color: "#8A2BE2" },
+  ],
 }
 
-const proportions = [
-  { name: "David", percent: 40, color: "#00FF66" },
-  { name: "Sebastián", percent: 35, color: "#8A2BE2" },
-  { name: "Manuela", percent: 25, color: "#00D4FF" },
-]
-
-const expenses: Expense[] = [
-  {
-    id: "1",
-    proposer: { name: "Sebastián", initials: "SB", color: "#8A2BE2" },
-    title: "Pagar el recibo de la luz de septiembre.",
-    amount: 120000,
-    status: "pending",
-    category: "luz",
-    approvals: [
-      { name: "Manuela", initials: "MA", approved: true, color: "#00D4FF" },
-      { name: "David", initials: "DV", approved: false, color: "#00FF66" },
-    ],
-  },
-  {
-    id: "2",
-    proposer: { name: "Manuela", initials: "MA", color: "#00D4FF" },
-    title: "Ingredientes para pasta al horno (mercado del finde).",
-    amount: 65000,
-    status: "approved",
-    category: "mercado",
-  },
-  {
-    id: "3",
-    proposer: { name: "David", initials: "DV", color: "#00FF66" },
-    title: "Compra de Jägermeister para el viernes.",
-    amount: 110000,
-    status: "debate",
-    category: "licor",
-    attemptsLeft: 3,
-    comments: [
-      {
-        from: "Sebastián",
-        text: "Uy, ¿no está muy caro en esa licorera? Vi una promo más barata en otra.",
-        color: "#8A2BE2",
-      },
-    ],
-  },
-]
+const expensesByWallet: Record<string, Expense[]> = {
+  "casa-marinilla": [
+    {
+      id: "1",
+      proposer: { name: "Sebastián", initials: "SB", color: "#8A2BE2" },
+      title: "Pagar el recibo de la luz de septiembre.",
+      amount: 120000,
+      status: "pending",
+      category: "luz",
+      approvals: [
+        { name: "Manuela", initials: "MA", approved: true, color: "#00D4FF" },
+        { name: "David", initials: "DV", approved: false, color: "#00FF66" },
+      ],
+    },
+    {
+      id: "2",
+      proposer: { name: "Manuela", initials: "MA", color: "#00D4FF" },
+      title: "Ingredientes para pasta al horno (mercado del finde).",
+      amount: 65000,
+      status: "approved",
+      category: "mercado",
+    },
+    {
+      id: "3",
+      proposer: { name: "David", initials: "DV", color: "#00FF66" },
+      title: "Compra de Jägermeister para el viernes.",
+      amount: 110000,
+      status: "debate",
+      category: "licor",
+      attemptsLeft: 3,
+      comments: [
+        {
+          from: "Sebastián",
+          text: "Uy, ¿no está muy caro en esa licorera? Vi una promo más barata en otra.",
+          color: "#8A2BE2",
+        },
+      ],
+    },
+  ],
+  "torneo-baloncesto": [
+    {
+      id: "t1",
+      proposer: { name: "Andrés", initials: "AN", color: "#00FF66" },
+      title: "Pago de inscripción al torneo (cupo 8 jugadores).",
+      amount: 80000,
+      status: "approved",
+      category: "mercado",
+    },
+    {
+      id: "t2",
+      proposer: { name: "Laura", initials: "LA", color: "#8A2BE2" },
+      title: "Hidratación + vendas para el partido del sábado.",
+      amount: 35000,
+      status: "pending",
+      category: "mercado",
+      approvals: [
+        { name: "Andrés", initials: "AN", approved: true, color: "#00FF66" },
+        { name: "Carlos", initials: "CA", approved: false, color: "#00D4FF" },
+      ],
+    },
+  ],
+}
 
 function formatCOP(n: number) {
   return new Intl.NumberFormat("es-CO", {
@@ -62,19 +88,36 @@ function formatCOP(n: number) {
   }).format(n)
 }
 
-export function WalletView() {
+export function WalletView({
+  walletId,
+  onBack,
+}: {
+  walletId: string
+  onBack: () => void
+}) {
+  const wallet = useMemo(() => wallets.find((w) => w.id === walletId) ?? wallets[0], [walletId])
+  const proportions = proportionsByWallet[wallet.id] ?? []
+  const expenses = expensesByWallet[wallet.id] ?? []
+
   const [autoFunding, setAutoFunding] = useState(true)
   const [hideBalance, setHideBalance] = useState(false)
 
+  const isAdmin = wallet.role === "Administrador"
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-6">
-      {/* Wallet header */}
-      <header className="px-5 pt-6 pb-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Cartera</p>
-            <h1 className="text-xl font-semibold mt-0.5">{wallet.name}</h1>
-          </div>
+      {/* Top bar with Back + Admin Gear */}
+      <div className="px-5 pt-5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Volver a Mis Carteras"
+          className="h-9 w-9 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setHideBalance((v) => !v)}
@@ -83,6 +126,29 @@ export function WalletView() {
           >
             {hideBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
+
+          {isAdmin && (
+            <button
+              type="button"
+              aria-label="Ajustes y permisos de la cartera"
+              className="h-9 w-9 rounded-full bg-card border border-primary/30 flex items-center justify-center text-primary hover:glow-primary transition-all"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Wallet header */}
+      <header className="px-5 pt-3 pb-5">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Cartera</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <h1 className="text-xl font-semibold">{wallet.name}</h1>
+          {isAdmin && (
+            <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">
+              Admin
+            </span>
+          )}
         </div>
 
         {/* Balance card */}
@@ -109,8 +175,8 @@ export function WalletView() {
             <p className="mt-1 text-3xl font-semibold tabular-nums text-glow-primary text-primary">
               {hideBalance ? "••••••" : formatCOP(wallet.balance)}
             </p>
-            <p className="mt-1 text-[11px] text-foreground/70">
-              ¡Pilas! Esta plata ya está pre-aprobada para los gastos del hogar.
+            <p className="mt-1.5 text-[10px] leading-snug text-foreground/60 text-pretty">
+              Fondo aislado. El saldo sobrante se redistribuirá proporcionalmente al cierre.
             </p>
 
             <div className="mt-4 grid grid-cols-[1fr_auto] gap-2 items-center">
@@ -140,13 +206,19 @@ export function WalletView() {
       <section className="px-5" aria-label="Proporción actual de aportes">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold">Proporción actual</h2>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 text-xs text-secondary font-medium hover:text-secondary/80 transition-colors"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            Editar acuerdos
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 text-xs text-secondary font-medium hover:text-secondary/80 transition-colors"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Editar acuerdos
+            </button>
+          ) : (
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Solo lectura
+            </span>
+          )}
         </div>
 
         <div className="rounded-2xl bg-card border border-border p-4 space-y-3">

@@ -3,11 +3,11 @@
 import { LayoutDashboard, Wallet, Plus, Bell, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type ViewKey = "dashboard" | "wallet" | "alerts" | "profile"
+export type ViewKey = "dashboard" | "wallets" | "alerts" | "profile"
 
 const items: { key: ViewKey; label: string; icon: typeof Wallet }[] = [
   { key: "dashboard", label: "Resumen", icon: LayoutDashboard },
-  { key: "wallet", label: "Cartera", icon: Wallet },
+  { key: "wallets", label: "Carteras", icon: Wallet },
   { key: "alerts", label: "Alertas", icon: Bell },
   { key: "profile", label: "Perfil", icon: User },
 ]
