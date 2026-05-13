@@ -10,7 +10,7 @@ export function PlaceholderView({
   icon: LucideIcon
 }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+    <div className="flex-1 flex flex-col items-center justify-center px-8 pb-28 text-center">
       <span className="h-16 w-16 rounded-2xl bg-card border border-border flex items-center justify-center text-primary mb-4 glow-primary">
         <Icon className="h-7 w-7" />
       </span>

@@ -3,7 +3,6 @@
 import { useState } from "react"
 import {
   Check,
-  X,
   Clock,
   CheckCircle2,
   AlertTriangle,
@@ -12,6 +11,8 @@ import {
   Zap,
   ShoppingBag,
   Wine,
+  Bell,
+  BellRing,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -45,28 +46,29 @@ const categoryIcon = {
 
 export function ExpenseCard({ expense }: { expense: Expense }) {
   const [reply, setReply] = useState("")
+  const [approvedNow, setApprovedNow] = useState(false)
+  const [reminded, setReminded] = useState<Record<string, boolean>>({})
   const Icon = categoryIcon[expense.category]
+
+  // Effective status — flips to "approved" once the user clicks Aprobar
+  const status: Status = approvedNow && expense.status === "pending" ? "approved" : expense.status
 
   return (
     <article
       className={cn(
         "rounded-2xl border bg-card p-4 transition-colors",
-        expense.status === "pending" && "border-primary/30",
-        expense.status === "approved" && "border-border",
-        expense.status === "debate" && "border-secondary/40",
+        status === "pending" && "border-primary/30",
+        status === "approved" && "border-primary/30",
+        status === "debate" && "border-secondary/40",
       )}
     >
       {/* Header */}
       <div className="flex items-start gap-3">
-        <Avatar
-          initials={expense.proposer.initials}
-          color={expense.proposer.color}
-          size="md"
-        />
+        <Avatar initials={expense.proposer.initials} color={expense.proposer.color} size="md" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-foreground">{expense.proposer.name}</p>
-            <StatusBadge status={expense.status} />
+            <StatusBadge status={status} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">propuso un gasto</p>
         </div>
@@ -86,46 +88,71 @@ export function ExpenseCard({ expense }: { expense: Expense }) {
         </p>
       </div>
 
-      {/* Pending: approval row + actions */}
-      {expense.status === "pending" && expense.approvals && (
+      {/* Pending: approval list + reminders + actions */}
+      {expense.status === "pending" && expense.approvals && !approvedNow && (
         <>
-          <div className="mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2">
-                {expense.approvals.map((a) => (
-                  <div key={a.name} className="relative">
-                    <Avatar
-                      initials={a.initials}
-                      color={a.color}
-                      size="sm"
-                      className="ring-2 ring-card"
-                    />
-                    <span
-                      className={cn(
-                        "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-card flex items-center justify-center",
-                        a.approved ? "bg-primary" : "bg-muted",
-                      )}
-                      aria-label={a.approved ? `${a.name} aprobó` : `${a.name} pendiente`}
-                    >
-                      {a.approved ? (
-                        <Check className="h-2 w-2 text-primary-foreground" strokeWidth={4} />
-                      ) : (
-                        <Clock className="h-2 w-2 text-muted-foreground" strokeWidth={3} />
-                      )}
+          <div className="mt-3 space-y-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Aprobaciones ({expense.approvals.filter((a) => a.approved).length}/
+              {expense.approvals.length})
+            </p>
+            <ul className="space-y-1.5">
+              {expense.approvals.map((a) => (
+                <li
+                  key={a.name}
+                  className="flex items-center gap-2 rounded-xl bg-background/40 border border-border px-2.5 py-1.5"
+                >
+                  <Avatar initials={a.initials} color={a.color} size="sm" />
+                  <span className="text-xs font-medium text-foreground/90 flex-1 truncate">
+                    {a.name}
+                  </span>
+
+                  {a.approved ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                      Aprobó
                     </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {expense.approvals.filter((a) => a.approved).length} de{" "}
-                {expense.approvals.length} aprobaron
-              </p>
-            </div>
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Pendiente
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReminded((r) => ({ ...r, [a.name]: true }))}
+                        disabled={reminded[a.name]}
+                        aria-label={`Enviar recordatorio a ${a.name}`}
+                        className={cn(
+                          "inline-flex items-center gap-1 h-7 px-2 rounded-full text-[10px] font-semibold transition-colors",
+                          reminded[a.name]
+                            ? "bg-primary/15 text-primary cursor-default"
+                            : "bg-secondary/15 text-secondary hover:bg-secondary/25",
+                        )}
+                      >
+                        {reminded[a.name] ? (
+                          <>
+                            <BellRing className="h-3 w-3" />
+                            Enviado
+                          </>
+                        ) : (
+                          <>
+                            <Bell className="h-3 w-3" />
+                            Recordar
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
+              onClick={() => setApprovedNow(true)}
               className="h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.98]"
             >
               <Check className="h-4 w-4" strokeWidth={3} />
@@ -142,12 +169,21 @@ export function ExpenseCard({ expense }: { expense: Expense }) {
         </>
       )}
 
-      {/* Approved: stamp */}
-      {expense.status === "approved" && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/30 px-3 py-2">
-          <CheckCircle2 className="h-4 w-4 text-primary" />
-          <p className="text-xs font-medium text-primary">Aprobado por todos y pagado</p>
-          <span className="ml-auto text-[10px] text-muted-foreground">hace 2 días</span>
+      {/* Approved (originally or after click) */}
+      {(expense.status === "approved" || approvedNow) && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5">
+          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+          <button
+            type="button"
+            disabled
+            className="text-xs font-semibold text-primary cursor-default"
+            aria-label="Gasto aprobado"
+          >
+            ✓ Aprobado
+          </button>
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {approvedNow ? "Justo ahora" : "hace 2 días"}
+          </span>
         </div>
       )}
 
@@ -158,19 +194,15 @@ export function ExpenseCard({ expense }: { expense: Expense }) {
             <AlertTriangle className="h-4 w-4 text-secondary shrink-0" />
             <p className="text-xs text-foreground/90">
               Quedan{" "}
-              <span className="font-semibold text-secondary">{expense.attemptsLeft}</span>{" "}
-              intentos de aprobación hoy
+              <span className="font-semibold text-secondary">{expense.attemptsLeft}</span> intentos
+              de aprobación hoy
             </p>
           </div>
 
           <div className="mt-3 space-y-2">
             {expense.comments?.map((c, i) => (
               <div key={i} className="flex items-start gap-2">
-                <Avatar
-                  initials={c.from.slice(0, 1)}
-                  color={c.color}
-                  size="sm"
-                />
+                <Avatar initials={c.from.slice(0, 1)} color={c.color} size="sm" />
                 <div className="rounded-2xl rounded-tl-sm bg-muted/60 px-3 py-2 max-w-[85%]">
                   <p className="text-[11px] font-medium text-muted-foreground">{c.from}</p>
                   <p className="text-xs text-foreground/95 mt-0.5">{c.text}</p>
@@ -246,7 +278,7 @@ function Avatar({
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-full font-semibold text-foreground shrink-0",
+        "inline-flex items-center justify-center rounded-full font-semibold shrink-0",
         size === "sm" ? "h-7 w-7 text-[10px]" : "h-10 w-10 text-xs",
         className,
       )}

@@ -1,14 +1,13 @@
 "use client"
 
-import { ChevronRight, Home, Trophy, Pin, Hourglass, Users, ShieldCheck, UserCircle2 } from "lucide-react"
+import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import type { WalletMember } from "./wallet-settings-modal"
 
 export type WalletSummary = {
   id: string
   name: string
-  type: "fija" | "temporal"
-  expiresInDays?: number
-  members: number
+  members: WalletMember[]
   role: "Administrador" | "Miembro"
   balance: number
   icon: LucideIcon
@@ -19,23 +18,30 @@ export const wallets: WalletSummary[] = [
   {
     id: "casa-marinilla",
     name: "Casa Marinilla",
-    type: "fija",
-    members: 3,
     role: "Administrador",
     balance: 450000,
     icon: Home,
     accent: "#00FF66",
+    members: [
+      { name: "David Castro", initials: "DC", color: "#00FF66", role: "Administrador" },
+      { name: "Sebastián Ramírez", initials: "SR", color: "#8A2BE2", role: "Miembro" },
+      { name: "Manuela Vélez", initials: "MV", color: "#00D4FF", role: "Miembro" },
+    ],
   },
   {
     id: "torneo-baloncesto",
     name: "Torneo de Baloncesto",
-    type: "temporal",
-    expiresInDays: 5,
-    members: 8,
     role: "Miembro",
     balance: 120000,
     icon: Trophy,
     accent: "#8A2BE2",
+    members: [
+      { name: "Andrés López", initials: "AL", color: "#00FF66", role: "Administrador" },
+      { name: "David Castro", initials: "DC", color: "#00D4FF", role: "Miembro" },
+      { name: "Valentina Ríos", initials: "VR", color: "#FFB020", role: "Miembro" },
+      { name: "Sebastián Ramírez", initials: "SR", color: "#8A2BE2", role: "Miembro" },
+      { name: "Manuela Vélez", initials: "MV", color: "#FF4D6D", role: "Miembro" },
+    ],
   },
 ]
 
@@ -53,7 +59,7 @@ export function WalletsListView({
   onOpen: (id: string) => void
 }) {
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide pb-6">
+    <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
         <h1 className="mt-1 text-2xl font-semibold text-balance">
@@ -64,7 +70,7 @@ export function WalletsListView({
         </p>
       </header>
 
-      <section className="px-5 space-y-3" aria-label="Listado de carteras activas">
+      <section className="px-5 space-y-3" aria-label="Listado de carteras">
         {wallets.map((w) => (
           <WalletListCard key={w.id} wallet={w} onOpen={onOpen} />
         ))}
@@ -116,16 +122,28 @@ function WalletListCard({
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
           </div>
 
-          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-            {wallet.type === "fija" ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-                <Pin className="h-3 w-3" />
-                Fija
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-secondary/20 text-secondary">
-                <Hourglass className="h-3 w-3" />
-                Temporal · Vence en {wallet.expiresInDays}d
+          {/* Member avatars */}
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex -space-x-2">
+              {wallet.members.slice(0, 3).map((m) => (
+                <span
+                  key={m.name}
+                  className="h-6 w-6 rounded-full inline-flex items-center justify-center text-[10px] font-semibold ring-2 ring-card"
+                  style={{
+                    background: `${m.color}33`,
+                    color: m.color,
+                    border: `1px solid ${m.color}55`,
+                  }}
+                  aria-hidden
+                  title={m.name}
+                >
+                  {m.initials}
+                </span>
+              ))}
+            </div>
+            {wallet.members.length > 3 && (
+              <span className="text-[11px] text-muted-foreground">
+                +{wallet.members.length - 3}
               </span>
             )}
           </div>
@@ -136,7 +154,7 @@ function WalletListCard({
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Users className="h-3.5 w-3.5" />
-            {wallet.members} miembros
+            {wallet.members.length} miembros
           </span>
           <span className="inline-flex items-center gap-1">
             {isAdmin ? (

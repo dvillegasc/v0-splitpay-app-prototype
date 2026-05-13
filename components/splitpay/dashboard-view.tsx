@@ -45,7 +45,7 @@ function formatCOP(n: number) {
 
 export function DashboardView() {
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide pb-6">
+    <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Mi Resumen</p>
@@ -130,7 +130,7 @@ export function DashboardView() {
               </div>
             </div>
 
-            <ul className="space-y-2.5">
+            <ul className="space-y-2 max-h-[140px] overflow-y-auto scrollbar-hide pr-1">
               {categoryData.map((c) => {
                 const Icon = c.icon
                 return (

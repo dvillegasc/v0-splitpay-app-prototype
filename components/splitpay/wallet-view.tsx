@@ -1,9 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowLeft, Plus, Settings, Settings2, Eye, EyeOff, Sparkles } from "lucide-react"
+import { ArrowLeft, Plus, Settings, Settings2, Eye, EyeOff, Sparkles, Info } from "lucide-react"
 import { ExpenseCard, type Expense } from "./expense-card"
 import { wallets } from "./wallets-list-view"
+import { WalletSettingsModal } from "./wallet-settings-modal"
 
 const proportionsByWallet: Record<string, { name: string; percent: number; color: string }[]> = {
   "casa-marinilla": [
@@ -12,8 +13,11 @@ const proportionsByWallet: Record<string, { name: string; percent: number; color
     { name: "Manuela", percent: 25, color: "#00D4FF" },
   ],
   "torneo-baloncesto": [
-    { name: "Capitán", percent: 20, color: "#00FF66" },
-    { name: "Equipo (7)", percent: 80, color: "#8A2BE2" },
+    { name: "Andrés", percent: 28, color: "#00FF66" },
+    { name: "David", percent: 24, color: "#00D4FF" },
+    { name: "Valentina", percent: 20, color: "#FFB020" },
+    { name: "Sebastián", percent: 16, color: "#8A2BE2" },
+    { name: "Manuela", percent: 12, color: "#FF4D6D" },
   ],
 }
 
@@ -21,19 +25,19 @@ const expensesByWallet: Record<string, Expense[]> = {
   "casa-marinilla": [
     {
       id: "1",
-      proposer: { name: "Sebastián", initials: "SB", color: "#8A2BE2" },
+      proposer: { name: "Sebastián", initials: "SR", color: "#8A2BE2" },
       title: "Pagar el recibo de la luz de septiembre.",
       amount: 120000,
       status: "pending",
       category: "luz",
       approvals: [
-        { name: "Manuela", initials: "MA", approved: true, color: "#00D4FF" },
-        { name: "David", initials: "DV", approved: false, color: "#00FF66" },
+        { name: "Manuela", initials: "MV", approved: true, color: "#00D4FF" },
+        { name: "David", initials: "DC", approved: false, color: "#00FF66" },
       ],
     },
     {
       id: "2",
-      proposer: { name: "Manuela", initials: "MA", color: "#00D4FF" },
+      proposer: { name: "Manuela", initials: "MV", color: "#00D4FF" },
       title: "Ingredientes para pasta al horno (mercado del finde).",
       amount: 65000,
       status: "approved",
@@ -41,7 +45,7 @@ const expensesByWallet: Record<string, Expense[]> = {
     },
     {
       id: "3",
-      proposer: { name: "David", initials: "DV", color: "#00FF66" },
+      proposer: { name: "David", initials: "DC", color: "#00FF66" },
       title: "Compra de Jägermeister para el viernes.",
       amount: 110000,
       status: "debate",
@@ -59,7 +63,7 @@ const expensesByWallet: Record<string, Expense[]> = {
   "torneo-baloncesto": [
     {
       id: "t1",
-      proposer: { name: "Andrés", initials: "AN", color: "#00FF66" },
+      proposer: { name: "Andrés", initials: "AL", color: "#00FF66" },
       title: "Pago de inscripción al torneo (cupo 8 jugadores).",
       amount: 80000,
       status: "approved",
@@ -67,14 +71,15 @@ const expensesByWallet: Record<string, Expense[]> = {
     },
     {
       id: "t2",
-      proposer: { name: "Laura", initials: "LA", color: "#8A2BE2" },
+      proposer: { name: "Valentina", initials: "VR", color: "#FFB020" },
       title: "Hidratación + vendas para el partido del sábado.",
       amount: 35000,
       status: "pending",
       category: "mercado",
       approvals: [
-        { name: "Andrés", initials: "AN", approved: true, color: "#00FF66" },
-        { name: "Carlos", initials: "CA", approved: false, color: "#00D4FF" },
+        { name: "Andrés", initials: "AL", approved: true, color: "#00FF66" },
+        { name: "David", initials: "DC", approved: false, color: "#00D4FF" },
+        { name: "Sebastián", initials: "SR", approved: false, color: "#8A2BE2" },
       ],
     },
   ],
@@ -101,11 +106,12 @@ export function WalletView({
 
   const [autoFunding, setAutoFunding] = useState(true)
   const [hideBalance, setHideBalance] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const isAdmin = wallet.role === "Administrador"
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide pb-6">
+    <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
       {/* Top bar with Back + Admin Gear */}
       <div className="px-5 pt-5 flex items-center justify-between">
         <button
@@ -127,15 +133,18 @@ export function WalletView({
             {hideBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
 
-          {isAdmin && (
-            <button
-              type="button"
-              aria-label="Ajustes y permisos de la cartera"
-              className="h-9 w-9 rounded-full bg-card border border-primary/30 flex items-center justify-center text-primary hover:glow-primary transition-all"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Ajustes de la cartera"
+            className={
+              isAdmin
+                ? "h-9 w-9 rounded-full bg-card border border-primary/30 flex items-center justify-center text-primary hover:glow-primary transition-all"
+                : "h-9 w-9 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            }
+          >
+            <Settings className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
@@ -240,9 +249,12 @@ export function WalletView({
               </div>
             </div>
           ))}
-          <p className="text-[11px] text-muted-foreground pt-1">
-            Calculado según los ingresos declarados por cada uno.
-          </p>
+          <div className="flex items-start gap-1.5 pt-1.5 border-t border-border/60">
+            <Info className="h-3 w-3 text-secondary mt-0.5 shrink-0" />
+            <p className="text-[11px] text-muted-foreground text-pretty">
+              División calculada inteligentemente basada en ingresos declarados.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -250,9 +262,7 @@ export function WalletView({
       <section className="px-5 mt-6" aria-label="Feed de aprobación de gastos">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold">Feed de aprobación</h2>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Hoy
-          </span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Hoy</span>
         </div>
 
         <div className="space-y-3">
@@ -261,6 +271,14 @@ export function WalletView({
           ))}
         </div>
       </section>
+
+      <WalletSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        walletName={wallet.name}
+        members={wallet.members}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

@@ -8,10 +8,12 @@ import { DashboardView } from "@/components/splitpay/dashboard-view"
 import { WalletsListView } from "@/components/splitpay/wallets-list-view"
 import { WalletView } from "@/components/splitpay/wallet-view"
 import { PlaceholderView } from "@/components/splitpay/placeholder-view"
+import { AddExpenseModal } from "@/components/splitpay/add-expense-modal"
 
 export default function Page() {
   const [view, setView] = useState<ViewKey>("wallets")
   const [openWalletId, setOpenWalletId] = useState<string | null>(null)
+  const [addExpenseOpen, setAddExpenseOpen] = useState(false)
 
   function handleNavChange(next: ViewKey) {
     setView(next)
@@ -59,7 +61,13 @@ export default function Page() {
         />
       )}
 
-      <BottomNav active={view} onChange={handleNavChange} />
+      <BottomNav
+        active={view}
+        onChange={handleNavChange}
+        onAddExpense={() => setAddExpenseOpen(true)}
+      />
+
+      <AddExpenseModal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} />
     </PhoneFrame>
   )
 }

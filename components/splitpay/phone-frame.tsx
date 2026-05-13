@@ -30,7 +30,9 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="h-svh sm:h-full sm:pt-10 overflow-hidden flex flex-col">{children}</div>
+        <div className="relative h-svh sm:h-full sm:pt-10 overflow-hidden flex flex-col">
+          {children}
+        </div>
       </div>
     </div>
   )

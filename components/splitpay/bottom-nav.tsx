@@ -15,14 +15,16 @@ const items: { key: ViewKey; label: string; icon: typeof Wallet }[] = [
 export function BottomNav({
   active,
   onChange,
+  onAddExpense,
 }: {
   active: ViewKey
   onChange: (v: ViewKey) => void
+  onAddExpense: () => void
 }) {
   return (
     <nav
       aria-label="Navegación principal"
-      className="relative shrink-0 border-t border-border bg-card/95 backdrop-blur-md"
+      className="absolute bottom-0 left-0 right-0 z-40 shrink-0 border-t border-border bg-card/95 backdrop-blur-md"
     >
       <ul className="grid grid-cols-5 items-center px-2 pt-2 pb-3">
         {items.slice(0, 2).map((item) => (
@@ -33,6 +35,7 @@ export function BottomNav({
         <li className="flex justify-center">
           <button
             type="button"
+            onClick={onAddExpense}
             aria-label="Proponer nuevo gasto"
             className="relative -mt-8 h-14 w-14 rounded-full bg-primary text-primary-foreground glow-primary flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
           >
