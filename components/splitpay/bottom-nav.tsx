@@ -24,7 +24,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Navegación principal"
-      className="absolute bottom-0 left-0 right-0 z-40 shrink-0 border-t border-border bg-card/95 backdrop-blur-md"
+      className="absolute bottom-0 left-0 right-0 z-50 shrink-0 border-t border-border bg-card/95 backdrop-blur-md"
     >
       <ul className="grid grid-cols-5 items-center px-2 pt-2 pb-3">
         {items.slice(0, 2).map((item) => (

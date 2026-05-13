@@ -14,7 +14,7 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
         }}
       />
 
-      <div className="relative w-full sm:w-[400px] sm:h-[860px] sm:rounded-[3rem] sm:border sm:border-white/10 sm:bg-card sm:shadow-2xl sm:overflow-hidden">
+      <div className="relative w-full h-svh sm:w-[400px] sm:h-[860px] sm:rounded-[3rem] sm:border sm:border-white/10 sm:bg-card sm:shadow-2xl overflow-hidden flex flex-col">
         {/* Notch (only on desktop simulation) */}
         <div className="hidden sm:flex absolute top-2 left-1/2 -translate-x-1/2 z-50 h-7 w-32 rounded-full bg-black items-center justify-center">
           <div className="h-2 w-2 rounded-full bg-white/10 ml-8" />
@@ -30,9 +30,8 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="relative h-svh sm:h-full sm:pt-10 overflow-hidden flex flex-col">
-          {children}
-        </div>
+        {/* App canvas: must be flex-col with a flexible content area for inner scroll */}
+        <div className="relative flex-1 sm:pt-10 flex flex-col min-h-0">{children}</div>
       </div>
     </div>
   )
