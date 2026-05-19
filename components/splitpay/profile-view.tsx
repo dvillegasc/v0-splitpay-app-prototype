@@ -77,7 +77,7 @@ export function ProfileView() {
   }
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-hide pb-28">
+    <main className="flex-1 overflow-y-auto scrollbar-hide pb-24">
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Perfil</p>
         <h1 className="mt-1 text-2xl font-semibold text-balance">
@@ -100,8 +100,8 @@ export function ProfileView() {
             DC
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-foreground truncate">David Castro</h2>
-            <p className="text-xs text-muted-foreground">davidcastro@correo.co</p>
+            <h2 className="text-lg font-semibold text-foreground truncate">David Villegas Ceballos</h2>
+            <p className="text-xs text-muted-foreground">david.villegas1@udea.edu.co</p>
             <span className="mt-1.5 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
               <ShieldCheck className="h-3 w-3" />
               Usuario Activo
