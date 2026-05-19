@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowLeft, Plus, Settings, Settings2, Eye, EyeOff, Sparkles, Info } from "lucide-react"
+import { ArrowLeft, Plus, Settings, Settings2, Eye, EyeOff, Sparkles, Info, CheckCircle2, Receipt } from "lucide-react"
 import { ExpenseCard, type Expense } from "./expense-card"
 import { wallets } from "./wallets-list-view"
 import { WalletSettingsModal } from "./wallet-settings-modal"
@@ -85,6 +85,40 @@ const expensesByWallet: Record<string, Expense[]> = {
   ],
 }
 
+type HistoryItem = {
+  id: string
+  date: string
+  title: string
+  amount: number
+  type: "auto-approved" | "recharge" | "reimbursement"
+}
+
+const historyByWallet: Record<string, HistoryItem[]> = {
+  "casa-marinilla": [
+    {
+      id: "h1",
+      date: "May 15",
+      title: "Reimbursement to David - Approved by all.",
+      amount: 85000,
+      type: "reimbursement",
+    },
+    {
+      id: "h2",
+      date: "May 14",
+      title: "Sebastián recharged his monthly quota.",
+      amount: 150000,
+      type: "recharge",
+    },
+    {
+      id: "h3",
+      date: "May 12",
+      title: "Manuela paid Arriendo - Auto-approved.",
+      amount: 300000,
+      type: "auto-approved",
+    },
+  ],
+}
+
 function formatCOP(n: number) {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -103,10 +137,12 @@ export function WalletView({
   const wallet = useMemo(() => wallets.find((w) => w.id === walletId) ?? wallets[0], [walletId])
   const proportions = proportionsByWallet[wallet.id] ?? []
   const expenses = expensesByWallet[wallet.id] ?? []
+  const history = historyByWallet[wallet.id] ?? []
 
   const [autoFunding, setAutoFunding] = useState(true)
   const [hideBalance, setHideBalance] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [feedTab, setFeedTab] = useState<"pending" | "history">("pending")
 
   const isAdmin = wallet.role === "Administrador"
 
@@ -258,18 +294,64 @@ export function WalletView({
         </div>
       </section>
 
-      {/* Approval feed */}
-      <section className="px-5 mt-6" aria-label="Feed de aprobación de gastos">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold">Feed de aprobación</h2>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Hoy</span>
+      {/* Toggled Feed Section */}
+      <section className="px-5 mt-6" aria-label="Feed de la cartera">
+        
+        <div className="flex bg-background/50 p-1.5 rounded-xl border border-border mb-4">
+          <button
+            type="button"
+            onClick={() => setFeedTab("pending")}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${
+              feedTab === "pending"
+                ? "bg-card text-foreground border border-border shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Aprobaciones
+          </button>
+          <button
+            type="button"
+            onClick={() => setFeedTab("history")}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${
+              feedTab === "history"
+                ? "bg-card text-foreground border border-border shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Historial
+          </button>
         </div>
 
-        <div className="space-y-3">
-          {expenses.map((e) => (
-            <ExpenseCard key={e.id} expense={e} />
-          ))}
-        </div>
+        {feedTab === "pending" ? (
+          <div className="space-y-3">
+            {expenses.map((e) => (
+              <ExpenseCard key={e.id} expense={e} />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+             {history.length > 0 ? (
+                history.map((h) => (
+                  <div key={h.id} className="rounded-2xl border border-border bg-card p-4 flex items-start gap-3">
+                    <div className="shrink-0 mt-0.5">
+                      {h.type === "auto-approved" && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                      {h.type === "reimbursement" && <Receipt className="h-5 w-5 text-secondary" />}
+                      {h.type === "recharge" && <Plus className="h-5 w-5 text-primary" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground">{h.date}</p>
+                      <p className="text-sm font-medium text-foreground mt-0.5 text-pretty leading-snug">{h.title}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                       <p className="text-sm font-semibold tabular-nums text-foreground">{formatCOP(h.amount)}</p>
+                    </div>
+                  </div>
+                ))
+             ) : (
+               <p className="text-center text-xs text-muted-foreground py-8">No hay historial aún.</p>
+             )}
+          </div>
+        )}
       </section>
 
       <WalletSettingsModal
