@@ -54,7 +54,7 @@ export function DashboardView() {
   const [paidNow, setPaidNow] = useState(false)
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-hide pb-28">
+    <main className="flex-1 overflow-y-auto scrollbar-hide pb-24">
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Mi Resumen</p>
@@ -228,15 +228,15 @@ export function DashboardView() {
           <DetailRow
             icon={<Home className="h-4 w-4" />}
             iconColor="#00FF66"
-            title="Casa Marinilla"
-            subtitle="Aporte fijo · Cartera"
+            title="Arriendo"
+            subtitle="Gasto fijo · Cartera: Casa Marinilla"
             amount={300000}
           />
           <DetailRow
             icon={<ShoppingCart className="h-4 w-4" />}
             iconColor="#00D4FF"
             title="Mercado mensual"
-            subtitle="Gasto aprobado · Manuela"
+            subtitle="Gasto ocasional · Cartera: Casa Marinilla"
             amount={420000}
           />
         </div>
@@ -269,13 +269,13 @@ export function DashboardView() {
               <Wifi className="h-4 w-4" />
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">Sebastián Ramírez</p>
+              <p className="text-sm font-semibold text-foreground">Recibo de Internet</p>
               <p className="text-[11px] text-muted-foreground mt-0.5 text-pretty">
-                Recibo de Internet · Casa Marinilla
+                Deuda pendiente · Cartera: Casa Marinilla
               </p>
               <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-secondary">
                 <Receipt className="h-3 w-3" />
-                Vence en 3 días
+                ⏳ VENCE EN 3 DÍAS
               </div>
             </div>
             <div className="text-right">
@@ -290,7 +290,7 @@ export function DashboardView() {
         {paidNow ? (
           <div className="mt-4 rounded-xl bg-primary/15 border border-primary/40 px-4 py-3 flex items-center gap-2 text-primary text-sm font-medium">
             <CheckCircle2 className="h-4 w-4" />
-            ¡Listo, plata enviada a Sebastián!
+            ¡Listo, plata enviada a la Cartera!
           </div>
         ) : (
           <button
@@ -298,7 +298,7 @@ export function DashboardView() {
             onClick={() => setPaidNow(true)}
             className="mt-4 w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.99]"
           >
-            Pagar ahora · {formatCOP(48000)}
+            Saldar deuda con la Cartera · {formatCOP(48000)}
           </button>
         )}
       </Modal>
