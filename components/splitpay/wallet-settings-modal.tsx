@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ShieldCheck, Trash2, UserCircle2, LogOut, AlertTriangle } from "lucide-react"
+import { ShieldCheck, Trash2, UserCircle2, LogOut, AlertTriangle, Cpu, Zap, Handshake } from "lucide-react"
 import { Modal } from "./modal"
 
 export type WalletMember = {
@@ -26,6 +26,11 @@ export function WalletSettingsModal({
 }) {
   const [confirming, setConfirming] = useState(false)
   const [deleted, setDeleted] = useState(false)
+
+  // Smart rule toggles
+  const [ruleTrust, setRuleTrust] = useState(true)
+  const [ruleFixed, setRuleFixed] = useState(true)
+  const [ruleUnanimous, setRuleUnanimous] = useState(false)
 
   function handleClose() {
     setConfirming(false)
@@ -58,7 +63,62 @@ export function WalletSettingsModal({
           </button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
+          
+          {/* Smart Approval Rules (New Section) */}
+          <section aria-label="Reglas Inteligentes de Aprobación">
+            <div className="flex items-center gap-2 mb-3">
+              <Cpu className="h-4 w-4 text-secondary" />
+              <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                Reglas Inteligentes
+              </h3>
+            </div>
+            
+            <div className="rounded-2xl bg-card border border-border p-1 divide-y divide-border">
+              {/* Rule 1 */}
+              <label className="flex items-start justify-between gap-4 p-3 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Trust Limit</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                    Auto-aprobar gastos dinámicos individuales menores a $50.000.
+                  </p>
+                </div>
+                <Toggle on={ruleTrust} onChange={setRuleTrust} />
+              </label>
+
+              {/* Rule 2 */}
+              <label className="flex items-start justify-between gap-4 p-3 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Gastos Fijos</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                    Auto-aprobar recibos registrados (ej. Arriendo, Luz) en su fecha de corte.
+                  </p>
+                </div>
+                <Toggle on={ruleFixed} onChange={setRuleFixed} />
+              </label>
+
+              {/* Rule 3 */}
+              <label className="flex items-start justify-between gap-4 p-3 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <Handshake className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Consenso Unánime</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                    Requerir 100% de aprobación para cualquier gasto mayor a $100.000.
+                  </p>
+                </div>
+                <Toggle on={ruleUnanimous} onChange={setRuleUnanimous} />
+              </label>
+            </div>
+          </section>
+
           {/* Members */}
           <section aria-label="Miembros de la cartera">
             <div className="flex items-center justify-between mb-2">
@@ -130,7 +190,7 @@ export function WalletSettingsModal({
                   <button
                     type="button"
                     onClick={() => setDeleted(true)}
-                    className="h-10 rounded-xl bg-destructive text-destructive-foreground text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-destructive/90 transition-colors"
+                    className="h-10 rounded-xl bg-destructive text-destructive-foreground text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-destructive/90 transition-all"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Confirmar eliminación
@@ -140,7 +200,7 @@ export function WalletSettingsModal({
                 <button
                   type="button"
                   onClick={() => setConfirming(true)}
-                  className="mt-3 w-full h-10 rounded-xl bg-destructive/10 border border-destructive/40 text-destructive text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-destructive/20 transition-colors"
+                  className="mt-3 w-full h-10 rounded-xl bg-destructive/10 border border-destructive/40 text-destructive text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-destructive/20 transition-all"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Eliminar cartera
@@ -159,5 +219,25 @@ export function WalletSettingsModal({
         </div>
       )}
     </Modal>
+  )
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`relative h-5 w-9 rounded-full transition-colors shrink-0 ${
+        on ? "bg-primary" : "bg-muted"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-background transition-transform ${
+          on ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </button>
   )
 }
