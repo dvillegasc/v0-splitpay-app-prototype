@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Send, Tag, DollarSign, Wallet as WalletIcon, CheckCircle2 } from "lucide-react"
+import { Send, Tag, DollarSign, Wallet as WalletIcon, CheckCircle2, Camera, CreditCard, Receipt } from "lucide-react"
 import { Modal } from "./modal"
 
 const wallets = [
@@ -16,6 +16,7 @@ export function AddExpenseModal({
   open: boolean
   onClose: () => void
 }) {
+  const [expenseType, setExpenseType] = useState<"direct" | "reimbursement">("direct")
   const [amount, setAmount] = useState("")
   const [concept, setConcept] = useState("")
   const [walletId, setWalletId] = useState(wallets[0].id)
@@ -23,6 +24,7 @@ export function AddExpenseModal({
 
   function handleClose() {
     setSubmitted(false)
+    setExpenseType("direct")
     setAmount("")
     setConcept("")
     setWalletId(wallets[0].id)
@@ -60,6 +62,55 @@ export function AddExpenseModal({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* Hybrid Payment Model Tabs */}
+          <div className="flex bg-background/50 p-1.5 rounded-xl border border-border">
+            <button
+              type="button"
+              onClick={() => setExpenseType("direct")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-colors ${
+                expenseType === "direct"
+                  ? "bg-primary/15 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CreditCard className="h-4 w-4" />
+              Pago Directo (Tarjeta SplitPay)
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpenseType("reimbursement")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-colors ${
+                expenseType === "reimbursement"
+                  ? "bg-secondary/20 text-secondary border border-secondary/30"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Receipt className="h-4 w-4" />
+              Solicitar Reembolso
+            </button>
+          </div>
+
+          {/* Upload Receipt UI */}
+          {expenseType === "reimbursement" && (
+            <div className="mt-4 p-5 rounded-2xl border-2 border-dashed border-border bg-card/40 flex flex-col items-center justify-center text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-secondary/15 flex items-center justify-center text-secondary glow-secondary">
+                <Camera className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground/90">
+                  Subir recibo o factura
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 text-balance">
+                  Sube una foto para extraer el monto automáticamente.
+                </p>
+              </div>
+              <p className="text-[10px] text-secondary font-medium px-2 py-1 rounded-md bg-secondary/10 mt-1">
+                Los fondos se transferirán a tu cuenta personal una vez aprobado.
+              </p>
+            </div>
+          )}
+
           {/* Amount */}
           <div>
             <label htmlFor="amount" className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -86,7 +137,7 @@ export function AddExpenseModal({
               Concepto
             </label>
             <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-background border border-border focus-within:ring-2 focus-within:ring-primary/40 px-3 h-12">
-              <Tag className="h-4 w-4 text-secondary" />
+              <Tag className="h-4 w-4 text-primary" />
               <input
                 id="concept"
                 type="text"
@@ -137,10 +188,14 @@ export function AddExpenseModal({
           <button
             type="submit"
             disabled={!amount || !concept}
-            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
+            className={`w-full h-12 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] ${
+              expenseType === "reimbursement"
+                ? "bg-secondary text-secondary-foreground hover:bg-secondary/90 hover:glow-secondary"
+                : "bg-primary text-primary-foreground hover:bg-primary/90 hover:glow-primary"
+            } disabled:opacity-50 disabled:pointer-events-none`}
           >
             <Send className="h-4 w-4" />
-            Proponer gasto
+            {expenseType === "reimbursement" ? "Solicitar reembolso" : "Proponer pago directo"}
           </button>
 
           <p className="text-[11px] text-muted-foreground text-center">
