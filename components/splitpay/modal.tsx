@@ -33,7 +33,7 @@ export function Modal({
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
-      className="absolute inset-0 z-50 flex items-end justify-center"
+      className="absolute inset-0 z-[100] flex items-end justify-center"
     >
       {/* Backdrop */}
       <div
@@ -68,7 +68,7 @@ export function Modal({
           </button>
         </div>
 
-        <div className="px-5 pb-6 overflow-y-auto scrollbar-hide">{children}</div>
+        <div className="px-5 pb-24 overflow-y-auto scrollbar-hide">{children}</div>
       </div>
     </div>
   )
