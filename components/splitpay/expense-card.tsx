@@ -13,6 +13,7 @@ import {
   Wine,
   Bell,
   BellRing,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -46,7 +47,9 @@ const categoryIcon = {
 
 export function ExpenseCard({ expense }: { expense: Expense }) {
   const [reply, setReply] = useState("")
-  const [approvedNow, setApprovedNow] = useState(false)
+  const [approveState, setApproveState] = useState<"idle" | "loading" | "success">("idle")
+  const approvedNow = approveState === "success"
+
   const [reminded, setReminded] = useState<Record<string, boolean>>({})
   const Icon = categoryIcon[expense.category]
 
@@ -152,18 +155,26 @@ export function ExpenseCard({ expense }: { expense: Expense }) {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => setApprovedNow(true)}
-              className="h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.98]"
+              onClick={async () => {
+                if (approveState !== "idle") return
+                setApproveState("loading")
+                await new Promise((r) => setTimeout(r, 650))
+                setApproveState("success")
+              }}
+              disabled={approveState !== "idle"}
+              className="h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.99] disabled:opacity-60"
             >
-              <Check className="h-4 w-4" strokeWidth={3} />
-              Aprobar
-            </button>
-            <button
-              type="button"
-              className="h-11 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition-all hover:bg-secondary/90 hover:glow-secondary active:scale-[0.98]"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Rechazar / Debatir
+              {approveState === "loading" ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Aprobando…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" strokeWidth={3} />
+                  Aprobar
+                </>
+              )}
             </button>
           </div>
         </>
