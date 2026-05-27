@@ -11,14 +11,8 @@ const proportionsByWallet: Record<string, { name: string; percent: number; color
     { name: "David", percent: 40, color: "#00FF66" },
     { name: "Sebastián", percent: 35, color: "#8A2BE2" },
     { name: "Manuela", percent: 25, color: "#00D4FF" },
-  ],
-  "torneo-baloncesto": [
-    { name: "Andrés", percent: 28, color: "#00FF66" },
-    { name: "David", percent: 24, color: "#00D4FF" },
-    { name: "Valentina", percent: 20, color: "#FFB020" },
-    { name: "Sebastián", percent: 16, color: "#8A2BE2" },
-    { name: "Manuela", percent: 12, color: "#FF4D6D" },
-  ],
+    { name: "Alexander", percent: 8, color: "#FFB020" },
+  ]
 }
 
 const expensesByWallet: Record<string, Expense[]> = {
@@ -59,30 +53,7 @@ const expensesByWallet: Record<string, Expense[]> = {
         },
       ],
     },
-  ],
-  "torneo-baloncesto": [
-    {
-      id: "t1",
-      proposer: { name: "Andrés", initials: "AL", color: "#00FF66" },
-      title: "Pago de inscripción al torneo (cupo 8 jugadores).",
-      amount: 80000,
-      status: "approved",
-      category: "mercado",
-    },
-    {
-      id: "t2",
-      proposer: { name: "Valentina", initials: "VR", color: "#FFB020" },
-      title: "Hidratación + vendas para el partido del sábado.",
-      amount: 35000,
-      status: "pending",
-      category: "mercado",
-      approvals: [
-        { name: "Andrés", initials: "AL", approved: true, color: "#00FF66" },
-        { name: "David", initials: "DC", approved: false, color: "#00D4FF" },
-        { name: "Sebastián", initials: "SR", approved: false, color: "#8A2BE2" },
-      ],
-    },
-  ],
+  ]
 }
 
 function formatCOP(n: number) {
