@@ -1,0 +1,44 @@
+name: AutoDev Agent
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Corre cada 6 horas
+  workflow_dispatch:      # Botón manual disponible siempre
+
+# PERMISOS CRÍTICOS: Permite al bot guardar y subir commits a tu repositorio
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install google-genai pydantic
+
+      - name: Ejecutar Agente IA
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python agent.py
+
+      - name: Guardar y subir cambios
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          # Solo hace commit si hubo cambios en los archivos
+          if ! git diff --cached --quiet; then
+            git commit -m "🤖 Iteración completada por el agente autónomo"
+            git push
+          else
+            print "No hubo cambios para guardar."
+          fi
