@@ -21,6 +21,7 @@ def test_code_syntax(code_str: str) -> str | None:
 
 def run_autonomous_step():
     client = genai.Client()
+    model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     
     task_path = "tasks.md"
     code_path = "main.py"
@@ -55,7 +56,7 @@ def run_autonomous_step():
 
     print("Enviando contexto al modelo...")
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model=model_name,
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
