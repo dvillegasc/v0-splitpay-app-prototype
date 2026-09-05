@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 export interface ApiOptions extends Omit<RequestInit, 'body'> {
   params?: Record<string, string | number | boolean | undefined>;
