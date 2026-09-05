@@ -1,8 +1,8 @@
 # Backlog de Desarrollo Autónomo Frontend - SplitPay (Next.js)
 
 ## Fase 1: Configuración de Conexión (API Client)
-- [ ] Frontend: Crear archivo `lib/api.ts` que configure una instancia base de `fetch` o `axios` apuntando a la variable de entorno `NEXT_PUBLIC_API_URL`.
-- [ ] Frontend: Crear un interceptor en `lib/api.ts` que inyecte automáticamente el token JWT (leído de localStorage o cookies) en el header `Authorization` de todas las peticiones.
+- [x] Frontend: Crear archivo `lib/api.ts` que configure una instancia base de `fetch` o `axios` apuntando a la variable de entorno `NEXT_PUBLIC_API_URL`.
+- [x] Frontend: Crear un interceptor en `lib/api.ts` que inyecte automáticamente el token JWT (leído de localStorage o cookies) en el header `Authorization` de todas las peticiones.
 
 ## Fase 2: Autenticación e Ingreso
 - [ ] Frontend: Actualizar el formulario de Login (`app/login/page.tsx` o similar) para enviar una petición `POST /api/auth/login` al backend.
