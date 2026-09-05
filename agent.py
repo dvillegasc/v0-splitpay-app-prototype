@@ -1,93 +1,102 @@
 import os
+import re
 import json
-import py_compile
-from pydantic import BaseModel, Field
 from google import genai
-from google.genai import types
+from google.genai import errors
 
-# Esquema para forzar una respuesta estructurada 100% confiable
-class AgentOutput(BaseModel):
-    task_done: str = Field(description="Descripción de la tarea completada en esta iteración")
-    updated_tasks: str = Field(description="Contenido completo de tasks.md con la tarea tachada")
-    updated_code: str = Field(description="Código completo de main.py sin bloques markdown")
+API_KEY = os.environ.get("GEMINI_API_KEY")
+if not API_KEY:
+    raise ValueError("Falta la variable de entorno GEMINI_API_KEY")
 
-def test_code_syntax(code_str: str) -> str | None:
-    """Verifica si el código es sintácticamente válido en Python."""
-    try:
-        py_compile.compile("main_temp.py", doraise=True)
-        return None
-    except py_compile.PyCompileError as e:
-        return str(e)
+client = genai.Client(api_key=API_KEY)
+TASKS_FILE = "tasks.md"
 
-def run_autonomous_step():
-    client = genai.Client()
+def get_codebase_context():
+    """Lee archivos de TypeScript/React para dar contexto a la IA."""
+    context = ""
+    for root, _, files in os.walk("."):
+        if ".git" in root or "node_modules" in root or ".next" in root: 
+            continue
+        for file in files:
+            # Ahora lee archivos web en lugar de solo Python
+            if file.endswith((".ts", ".tsx", ".js", ".jsx", ".css")) and file != "agent.py":
+                path = os.path.join(root, file)
+                with open(path, "r", encoding="utf-8") as f:
+                    context += f"\n--- {path} ---\n{f.read()}\n"
+    return context
+
+def run_agent():
+    print("🤖 Iniciando Agente Frontend en Modo Bucle...")
     
-    task_path = "tasks.md"
-    code_path = "main.py"
-    
-    if not os.path.exists(task_path):
-        print("Falta el archivo tasks.md")
-        return
+    while True:
+        with open(TASKS_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        match = re.search(r'- \[ \] (.*)', content)
+        if not match:
+            print("🎉 No hay más tareas pendientes en tasks.md. Apagando agente.")
+            break 
+
+        current_task = match.group(1)
+        full_line = match.group(0)
+        print(f"\n🚀 Procesando: {current_task}")
+
+        context = get_codebase_context()
+        prompt = f"""
+        Eres un Tech Lead autónomo desarrollando el frontend de 'SplitPay' en Next.js (App Router), React, TypeScript y Tailwind CSS.
+        Tu tarea actual a ejecutar es: "{current_task}"
         
-    with open(task_path, "r", encoding="utf-8") as f:
-        tasks_content = f.read()
+        Este es el estado actual del código (contexto):
+        {context}
+        
+        Genera el código necesario para cumplir esta tarea. Modifica el código existente (mock data) para integrarlo con la lógica descrita.
+        REGLA CRÍTICA: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. 
+        - Las claves (keys) deben ser la ruta relativa del archivo (ej. 'app/page.tsx' o 'lib/api.ts').
+        - Los valores (values) deben ser el código fuente COMPLETO de ese archivo.
+        - NO incluyas formato Markdown, no saludes, no expliques nada. Solo el JSON.
+        """
 
-    current_code = ""
-    if os.path.exists(code_path):
-        with open(code_path, "r", encoding="utf-8") as f:
-            current_code = f.read()
-
-    prompt = f"""
-    Eres un ingeniero de software senior trabajando de forma incremental.
-    
-    [TAREAS PENDIENTES (tasks.md)]
-    {tasks_content}
-    
-    [CÓDIGO ACTUAL (main.py)]
-    {current_code}
-    
-    Instrucciones:
-    1. Identifica la siguiente tarea pendiente prioritaria en tasks.md.
-    2. Implementa la solución de forma robusta e intégrala limpiamente en el código actual de main.py.
-    3. Marca la tarea como completada en tasks.md (usa '- [x]').
-    4. Devuelve únicamente el esquema JSON solicitado sin explicaciones extras.
-    """
-
-    print("Enviando contexto al modelo...")
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=AgentOutput,
-            temperature=0.2, # Temperatura baja para mayor precisión en código
-        ),
-    )
-
-    data = json.loads(response.text)
-    new_code = data["updated_code"]
-    new_tasks = data["updated_tasks"]
-
-    # Validación previa de sintaxis
-    with open("main_temp.py", "w", encoding="utf-8") as f:
-        f.write(new_code)
-
-    error = test_code_syntax(new_code)
-    if os.path.exists("main_temp.py"):
-        os.remove("main_temp.py")
-
-    if error:
-        print(f"Error de sintaxis detectado. Omitiendo guardado para no romper el proyecto:\n{error}")
-        return
-
-    # Si compila correctamente, se aplican los cambios
-    with open(code_path, "w", encoding="utf-8") as f:
-        f.write(new_code)
-
-    with open(task_path, "w", encoding="utf-8") as f:
-        f.write(new_tasks)
-
-    print(f"-> Iteración completada con éxito: {data['task_done']}")
+        try:
+            # Usando explícitamente el modelo solicitado
+            response = client.models.generate_content(
+                model='gemini-3.6-flash',
+                contents=prompt,
+            )
+            
+            raw_json = response.text.strip()
+            if raw_json.startswith("```json"):
+                raw_json = raw_json[7:]
+            if raw_json.startswith("```"):
+                raw_json = raw_json[3:]
+            if raw_json.endswith("```"):
+                raw_json = raw_json[:-3]
+                
+            files_to_update = json.loads(raw_json.strip())
+            
+            for filepath, filecontent in files_to_update.items():
+                os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(filecontent)
+                print(f"✅ Archivo actualizado/creado: {filepath}")
+                    
+            new_content = content.replace(full_line, full_line.replace('[ ]', '[x]', 1), 1)
+            with open(TASKS_FILE, "w", encoding="utf-8") as f:
+                f.write(new_content)
+                
+            print("🏁 Tarea completada. Buscando la siguiente...")
+            
+        except json.JSONDecodeError:
+            print("⚠️ Error: JSON incompleto (límite de tokens). Deteniendo bucle.")
+            break
+        except errors.ClientError as e:
+            if "429" in str(e):
+                print("🛑 Cuota gratuita agotada (Error 429). Hasta luego.")
+            else:
+                print(f"❌ Error de API: {e}")
+            break
+        except Exception as e:
+            print(f"❌ Error inesperado: {e}")
+            break
 
 if __name__ == "__main__":
-    run_autonomous_step()
+    run_agent()
