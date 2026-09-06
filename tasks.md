@@ -5,7 +5,7 @@
 - [x] Frontend: Crear un interceptor en `lib/api.ts` que inyecte automáticamente el token JWT (leído de localStorage o cookies) en el header `Authorization` de todas las peticiones.
 
 ## Fase 2: Autenticación e Ingreso
-- [ ] Frontend: Actualizar el formulario de Login (`app/login/page.tsx` o similar) para enviar una petición `POST /api/auth/login` al backend.
+- [x] Frontend: Actualizar el formulario de Login (`app/login/page.tsx` o similar) para enviar una petición `POST /api/auth/login` al backend.
 - [ ] Frontend: Implementar la lógica para guardar el token JWT recibido en el almacenamiento local al hacer login exitoso.
 - [ ] Frontend: Actualizar el formulario de Registro para incluir el campo numérico `ingreso_mensual_declarado` y enviarlo mediante `POST /api/auth/register`.
 
