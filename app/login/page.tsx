@@ -29,25 +29,30 @@ export default function LoginPage() {
     setErrorMessage(null)
 
     try {
-      // Petición POST a /api/auth/login a través de la librería API centralizada
+      // Petición POST a /auth/login a través de la librería API centralizada
       const response = await api.post("/auth/login", { email, password })
 
       const token =
         response?.token ||
         response?.access_token ||
         response?.accessToken ||
-        response?.data?.token
+        response?.data?.token ||
+        response?.data?.access_token ||
+        response?.jwt
 
       if (token) {
+        // Guardar el token JWT en almacenamiento local y cookies
         setAuthToken(token)
+
+        toast({
+          title: "¡Sesión iniciada!",
+          description: "Has ingresado correctamente a SplitPay.",
+        })
+
+        router.push("/")
+      } else {
+        throw new Error("Respuesta del servidor sin token de autenticación.")
       }
-
-      toast({
-        title: "¡Sesión iniciada!",
-        description: "Has ingresado correctamente a SplitPay.",
-      })
-
-      router.push("/")
     } catch (err: any) {
       const msg =
         err?.data?.message ||

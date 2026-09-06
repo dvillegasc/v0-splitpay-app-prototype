@@ -60,7 +60,11 @@ export function setAuthToken(token: string): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem('token', token);
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('jwt', token);
+    localStorage.setItem('splitpay_token', token);
     document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
   } catch {
     // ignore
   }

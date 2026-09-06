@@ -6,7 +6,7 @@
 
 ## Fase 2: Autenticación e Ingreso
 - [x] Frontend: Actualizar el formulario de Login (`app/login/page.tsx` o similar) para enviar una petición `POST /api/auth/login` al backend.
-- [ ] Frontend: Implementar la lógica para guardar el token JWT recibido en el almacenamiento local al hacer login exitoso.
+- [x] Frontend: Implementar la lógica para guardar el token JWT recibido en el almacenamiento local al hacer login exitoso.
 - [ ] Frontend: Actualizar el formulario de Registro para incluir el campo numérico `ingreso_mensual_declarado` y enviarlo mediante `POST /api/auth/register`.
 
 ## Fase 3: Dashboard y Estado Global
