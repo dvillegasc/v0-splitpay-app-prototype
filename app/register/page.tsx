@@ -105,7 +105,7 @@ export default function RegisterPage() {
         description: msg,
         variant: "destructive",
       })
-    } => {
+    } finally {
       setLoading(false)
     }
   }
