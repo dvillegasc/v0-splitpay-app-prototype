@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Lock, Mail, Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Sparkles, User, DollarSign } from "lucide-react"
 import { PhoneFrame } from "@/components/splitpay/phone-frame"
-import { api, setAuthToken } from "@/lib/api"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 
 function parseCOPInput(raw: string) {
@@ -24,6 +25,7 @@ function formatCOP(n: number) {
 export default function RegisterPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { login: authLogin } = useAuth()
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -70,8 +72,16 @@ export default function RegisterPage() {
         response?.data?.access_token ||
         response?.jwt
 
+      const userData =
+        response?.user ||
+        response?.data?.user || {
+          name: name.trim(),
+          email: email.trim(),
+          ingreso_mensual_declarado: ingresoNum,
+        }
+
       if (token) {
-        setAuthToken(token)
+        authLogin(token, userData)
       }
 
       toast({
@@ -95,7 +105,7 @@ export default function RegisterPage() {
         description: msg,
         variant: "destructive",
       })
-    } finally {
+    } => {
       setLoading(false)
     }
   }

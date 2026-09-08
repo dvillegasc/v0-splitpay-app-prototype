@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/context/AuthContext"
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -50,8 +51,11 @@ function formatCOP(n: number) {
 }
 
 export function DashboardView() {
+  const { user } = useAuth()
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
+
+  const displayName = user?.name ? user.name.split(" ")[0] : "David"
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-hide pb-24">
@@ -59,7 +63,7 @@ export function DashboardView() {
       <header className="px-5 pt-6 pb-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Mi Resumen</p>
         <h1 className="mt-1 text-2xl font-semibold text-balance">
-          ¡Hola, <span className="text-primary text-glow-primary">David</span>!
+          ¡Hola, <span className="text-primary text-glow-primary">{displayName}</span>!
         </h1>
         <p className="text-sm text-muted-foreground mt-1 text-pretty">
           Aquí está tu resumen financiero del mes.
@@ -210,7 +214,7 @@ export function DashboardView() {
           <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <ArrowUpRight className="h-3 w-3 text-primary" />
-              David lidera los aportes
+              {displayName} lidera los aportes
             </span>
             <span>Total bolsa: {formatCOP(1800000)}</span>
           </div>

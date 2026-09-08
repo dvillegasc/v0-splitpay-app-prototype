@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Lock, Mail, Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Sparkles } from "lucide-react"
 import { PhoneFrame } from "@/components/splitpay/phone-frame"
-import { api, setAuthToken } from "@/lib/api"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { login: authLogin } = useAuth()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,9 +42,14 @@ export default function LoginPage() {
         response?.data?.access_token ||
         response?.jwt
 
+      const userData =
+        response?.user ||
+        response?.data?.user ||
+        response?.data
+
       if (token) {
-        // Guardar el token JWT en almacenamiento local y cookies
-        setAuthToken(token)
+        // Guardar estado en el AuthContext global
+        authLogin(token, userData)
 
         toast({
           title: "¡Sesión iniciada!",

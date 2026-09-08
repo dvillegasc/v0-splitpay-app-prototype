@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthContext"
 import {
   Pencil,
   CreditCard,
@@ -13,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Modal } from "./modal"
+import { useToast } from "@/hooks/use-toast"
 
 function formatCOP(n: number) {
   return new Intl.NumberFormat("es-CO", {
@@ -59,9 +62,25 @@ const options: Option[] = [
 ]
 
 export function ProfileView() {
-  const [income, setIncome] = useState(14500000)
+  const router = useRouter()
+  const { toast } = useToast()
+  const { user, logout, updateUser } = useAuth()
+
+  const userName = user?.name || "David Villegas Ceballos"
+  const userEmail = user?.email || "david.villegas1@udea.edu.co"
+  const initialIncome = user?.ingreso_mensual_declarado || 14500000
+
+  const [income, setIncome] = useState(initialIncome)
   const [editOpen, setEditOpen] = useState(false)
   const [draftIncome, setDraftIncome] = useState(income.toString())
+
+  const initials = userName
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "DC"
 
   function openEditor() {
     setDraftIncome(income.toString())
@@ -72,8 +91,24 @@ export function ProfileView() {
     const parsed = Number(draftIncome.replace(/[^0-9]/g, ""))
     if (!Number.isNaN(parsed) && parsed > 0) {
       setIncome(parsed)
+      updateUser({ ingreso_mensual_declarado: parsed })
+      toast({
+        title: "Ingreso actualizado",
+        description: `Tu ingreso declarado ahora es ${formatCOP(parsed)} COP.`,
+      })
     }
     setEditOpen(false)
+  }
+
+  function handleOptionClick(optId: string) {
+    if (optId === "logout") {
+      logout()
+      toast({
+        title: "Sesión cerrada",
+        description: "Has salido correctamente de tu cuenta.",
+      })
+      router.push("/login")
+    }
   }
 
   return (
@@ -97,11 +132,11 @@ export function ProfileView() {
             }}
             aria-hidden
           >
-            DC
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-foreground truncate">David Villegas Ceballos</h2>
-            <p className="text-xs text-muted-foreground">david.villegas1@udea.edu.co</p>
+            <h2 className="text-lg font-semibold text-foreground truncate">{userName}</h2>
+            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             <span className="mt-1.5 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
               <ShieldCheck className="h-3 w-3" />
               Usuario Activo
@@ -160,6 +195,7 @@ export function ProfileView() {
               <button
                 key={opt.id}
                 type="button"
+                onClick={() => handleOptionClick(opt.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${
                   opt.danger ? "hover:bg-[#FF4D6D]/10" : "hover:bg-background/40"
                 }`}
