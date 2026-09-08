@@ -33,3 +33,11 @@
 - [ ] Frontend: Conectar `add-expense-modal.tsx` para que el envío final llame a `POST /api/expenses` con la estructura de `ExpenseCreate`, dejando `computeSplitLines` únicamente como previsualización optimista en el modal, no como fuente de verdad de los montos guardados.
 - [ ] Frontend: Configurar la variable de entorno `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend desplegado en Render.
 - [ ] Frontend: Evaluar migrar el almacenamiento del JWT de `localStorage` a una cookie `httpOnly` gestionada por el backend, ya que `localStorage` es vulnerable a robo de token vía XSS.
+
+## Fase 7: Correcciones de Tipos y Conexión Real de Vistas
+- [ ] Frontend: En `context/AuthContext.tsx`, corregir el tipo de `ingreso_mensual_declarado` en la interfaz `User` de `number` a `string`, ya que el backend lo serializa como string.
+- [ ] Frontend: Conectar `dashboard-view.tsx` y `wallets-list-view.tsx` a `GET /api/households/me` y `GET /api/households/{id}/members`, reemplazando el estado mock.
+- [ ] Frontend: Conectar la vista de balances/wallet a `GET /api/households/{id}/balances`, y renderizar el botón "Pagar" usando el campo `nequi_deep_link` que ya retorna el backend, en vez de construir el enlace manualmente en el frontend.
+- [ ] Frontend: Conectar `add-expense-modal.tsx` a `POST /api/expenses`, incluyendo el `household_id` real (hoy el modal solo maneja el mock `wallets = [{id: "casa-marinilla", ...}]`), dejando `computeSplitLines` únicamente como previsualización optimista.
+- [ ] Frontend: Agregar el botón "Rechazar Gasto" en `expense-card.tsx` conectado a `PUT /api/expenses/{id}/reject`.
+- [ ] Frontend: Antes de abrir cualquier deep link de pago, mostrar un texto visible ("SplitPay no procesa ni retiene tu dinero; esto abrirá tu app de Nequi para completar la transferencia") como capa de claridad de Cero Custodia hacia el usuario.
