@@ -11,7 +11,7 @@
 
 ## Fase 3: Dashboard y Estado Global
 - [x] Frontend: Crear un contexto de React (`context/AuthContext.tsx`) para mantener el estado del usuario logueado en toda la aplicación.
-- [ ] Frontend: Modificar la página principal del Dashboard para hacer un `GET /api/households/me` (o ruta equivalente) y reemplazar los nombres "quemados" (mock data) por los de la base de datos.
+- [x] Frontend: Modificar la página principal del Dashboard para hacer un `GET /api/households/me` (o ruta equivalente) y reemplazar los nombres "quemados" (mock data) por los de la base de datos.
 - [ ] Frontend: Modificar el componente del listado de roomies para renderizar los miembros reales del hogar con su etiqueta de "Tesorero".
 
 ## Fase 4: Creación y División de Gastos

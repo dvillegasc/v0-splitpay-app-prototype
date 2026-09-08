@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
+import { api } from "@/lib/api"
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -15,6 +16,7 @@ import {
   Wifi,
   Receipt,
   CheckCircle2,
+  Loader2,
 } from "lucide-react"
 import {
   PieChart,
@@ -29,17 +31,32 @@ import {
 } from "recharts"
 import { Modal } from "./modal"
 
+export interface HouseholdMemberDB {
+  id?: string
+  name: string
+  email?: string
+  incomeCOP?: number
+  aporte?: number
+  color?: string
+  role?: string
+}
+
+export interface HouseholdDB {
+  id?: string
+  name?: string
+  balance?: number
+  members?: HouseholdMemberDB[]
+  debts?: any[]
+  [key: string]: any
+}
+
+const defaultColors = ["#00FF66", "#8A2BE2", "#00D4FF", "#FFB020", "#FF4D6D"]
+
 const categoryData = [
   { name: "Mercado", value: 40, color: "#00FF66", icon: ShoppingCart },
   { name: "Pasajes Medellín–Marinilla", value: 25, color: "#8A2BE2", icon: Bus },
   { name: "Salidas / Licores", value: 20, color: "#00D4FF", icon: Wine },
   { name: "Suscripciones", value: 15, color: "#FFB020", icon: Sparkles },
-]
-
-const contributionData = [
-  { name: "David", aporte: 720, fill: "#00FF66" },
-  { name: "Sebastián", aporte: 630, fill: "#8A2BE2" },
-  { name: "Manuela", aporte: 450, fill: "#00D4FF" },
 ]
 
 function formatCOP(n: number) {
@@ -52,29 +69,113 @@ function formatCOP(n: number) {
 
 export function DashboardView() {
   const { user } = useAuth()
+  const [household, setHousehold] = useState<HouseholdDB | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  const displayName = user?.name ? user.name.split(" ")[0] : "David"
+  // Cargar datos de la casa del usuario desde GET /api/households/me
+  const fetchHousehold = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await api.get("/households/me")
+      const data = response?.household || response?.data?.household || response?.data || response
+      if (data) {
+        setHousehold(Array.isArray(data) ? data[0] : data)
+      }
+    } catch (err: any) {
+      console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
+      setError("No se pudieron cargar los datos actualizados de la casa.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchHousehold()
+  }, [fetchHousehold])
+
+  // Obtener nombre del usuario para el saludo
+  const displayName = user?.name
+    ? user.name.split(" ")[0]
+    : household?.members?.[0]?.name
+    ? household.members[0].name.split(" ")[0]
+    : "Usuario"
+
+  // Miembros obtenidos de la base de datos con asignación de colores y aportes
+  const dbMembers: HouseholdMemberDB[] = household?.members && household.members.length > 0
+    ? household.members.map((m, idx) => ({
+        ...m,
+        color: m.color || defaultColors[idx % defaultColors.length],
+        aporte: typeof m.aporte === "number" ? m.aporte : 0,
+      }))
+    : [
+        { name: user?.name ? user.name.split(" ")[0] : "David", aporte: 720000, color: "#00FF66" },
+        { name: "Sebastián", aporte: 630000, color: "#8A2BE2" },
+        { name: "Manuela", aporte: 450000, color: "#00D4FF" },
+      ]
+
+  // Datos de contribución formateados para el gráfico
+  const contributionData = dbMembers.map((m) => {
+    const rawAporte = m.aporte || 0
+    return {
+      name: m.name.split(" ")[0],
+      aporte: rawAporte >= 1000 ? Math.round(rawAporte / 1000) : rawAporte,
+      rawAporte,
+      fill: m.color,
+    }
+  })
+
+  // Usuario con mayor aporte en la base de datos
+  const leader = contributionData.reduce(
+    (prev, current) => (current.rawAporte > prev.rawAporte ? current : prev),
+    contributionData[0] || { name: displayName, rawAporte: 0 }
+  )
+
+  // Total de la bolsa común desde DB o calculado
+  const totalBolsa =
+    household?.balance ||
+    contributionData.reduce((acc, curr) => acc + curr.rawAporte, 0) ||
+    1800000
+
+  // Nombre de la casa / cartera obtenido de la DB
+  const householdName = household?.name || "Casa Marinilla"
+
+  // Aporte individual del usuario actual
+  const currentUserMember = dbMembers.find(
+    (m) => m.email === user?.email || m.name.toLowerCase().includes(displayName.toLowerCase())
+  )
+  const myAporte = currentUserMember?.aporte || 720000
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-hide pb-24">
       {/* Header */}
-      <header className="px-5 pt-6 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Mi Resumen</p>
-        <h1 className="mt-1 text-2xl font-semibold text-balance">
-          ¡Hola, <span className="text-primary text-glow-primary">{displayName}</span>!
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1 text-pretty">
-          Aquí está tu resumen financiero del mes.
-        </p>
+      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Mi Resumen</p>
+          <h1 className="mt-1 text-2xl font-semibold text-balance">
+            ¡Hola, <span className="text-primary text-glow-primary">{displayName}</span>!
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 text-pretty">
+            {householdName} · Resumen financiero del mes.
+          </p>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-card/60 px-2.5 py-1 rounded-full border border-border animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span>Sincronizando...</span>
+          </div>
+        )}
       </header>
 
       {/* Metric cards */}
       <section className="px-5 grid grid-cols-2 gap-3" aria-label="Métricas del mes">
         <MetricCard
           label="Aportado este mes"
-          value={formatCOP(720000)}
+          value={formatCOP(myAporte)}
           delta="+12%"
           deltaPositive
           icon={<TrendingUp className="h-4 w-4" />}
@@ -169,11 +270,11 @@ export function DashboardView() {
         </div>
       </section>
 
-      {/* Bar chart */}
+      {/* Bar chart - Datos de miembros de la DB */}
       <section className="px-5 mt-5" aria-label="Aportes a las carteras grupales">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-base font-semibold">Aportes grupales</h2>
-          <span className="text-xs text-muted-foreground">Casa Marinilla</span>
+          <span className="text-xs text-muted-foreground">{householdName}</span>
         </div>
 
         <div className="rounded-2xl bg-card border border-border p-4">
@@ -204,7 +305,10 @@ export function DashboardView() {
                   }}
                   itemStyle={{ color: "#f5f7fb" }}
                   labelStyle={{ color: "#f5f7fb" }}
-                  formatter={(value: number) => [formatCOP(value * 1000), "Aporte"]}
+                  formatter={(value: number) => [
+                    formatCOP(value >= 1000 ? value : value * 1000),
+                    "Aporte",
+                  ]}
                 />
                 <Bar dataKey="aporte" radius={[8, 8, 8, 8]} />
               </BarChart>
@@ -214,9 +318,9 @@ export function DashboardView() {
           <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <ArrowUpRight className="h-3 w-3 text-primary" />
-              {displayName} lidera los aportes
+              {leader.name} lidera los aportes
             </span>
-            <span>Total bolsa: {formatCOP(1800000)}</span>
+            <span>Total bolsa: {formatCOP(totalBolsa)}</span>
           </div>
         </div>
       </section>
@@ -226,28 +330,28 @@ export function DashboardView() {
         open={openMetric === "contributions"}
         onClose={() => setOpenMetric(null)}
         title="Aportado este mes"
-        subtitle="Desglose por bolsa común y gastos compartidos."
+        subtitle={`Desglose por bolsa común y gastos compartidos en ${householdName}.`}
       >
         <div className="space-y-2">
           <DetailRow
             icon={<Home className="h-4 w-4" />}
             iconColor="#00FF66"
             title="Arriendo"
-            subtitle="Gasto fijo · Cartera: Casa Marinilla"
+            subtitle={`Gasto fijo · Cartera: ${householdName}`}
             amount={300000}
           />
           <DetailRow
             icon={<ShoppingCart className="h-4 w-4" />}
             iconColor="#00D4FF"
             title="Mercado mensual"
-            subtitle="Gasto ocasional · Cartera: Casa Marinilla"
+            subtitle={`Gasto ocasional · Cartera: ${householdName}`}
             amount={420000}
           />
         </div>
         <div className="mt-4 flex items-center justify-between rounded-xl bg-primary/10 border border-primary/30 px-4 py-3">
           <span className="text-xs uppercase tracking-wider text-foreground/80">Total aportado</span>
           <span className="text-lg font-semibold tabular-nums text-primary">
-            {formatCOP(720000)}
+            {formatCOP(myAporte)}
           </span>
         </div>
       </Modal>
@@ -257,7 +361,6 @@ export function DashboardView() {
         open={openMetric === "debts"}
         onClose={() => {
           setOpenMetric(null)
-          // reset payment state if closed
           setTimeout(() => setPaidNow(false), 200)
         }}
         title="Deuda pendiente"
@@ -275,7 +378,7 @@ export function DashboardView() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Recibo de Internet</p>
               <p className="text-[11px] text-muted-foreground mt-0.5 text-pretty">
-                Deuda pendiente · Cartera: Casa Marinilla
+                Deuda pendiente · Cartera: {householdName}
               </p>
               <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-secondary">
                 <Receipt className="h-3 w-3" />
@@ -403,3 +506,4 @@ function DetailRow({
     </div>
   )
 }
+"
