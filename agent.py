@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import json
 from google import genai
 from google.genai import errors
@@ -11,58 +12,101 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 TASKS_FILE = "tasks.md"
 
+LANE = None
+if len(sys.argv) > 1 and sys.argv[1].strip():
+    LANE = sys.argv[1].strip().upper()
+elif os.environ.get("AGENT_LANE"):
+    LANE = os.environ["AGENT_LANE"].strip().upper()
+
+if LANE:
+    TASK_PATTERN = re.compile(r'- \[ \] \[' + re.escape(LANE) + r'\] (.*)')
+else:
+    TASK_PATTERN = re.compile(r'- \[ \] (.*)')
+
+
 def get_codebase_context():
-    """Lee archivos de TypeScript/React para dar contexto a la IA."""
     context = ""
     for root, _, files in os.walk("."):
-        if ".git" in root or "node_modules" in root or ".next" in root: 
+        if ".git" in root or "node_modules" in root or ".next" in root:
             continue
         for file in files:
-            # Ahora lee archivos web en lugar de solo Python
             if file.endswith((".ts", ".tsx", ".js", ".jsx", ".css")) and file != "agent.py":
                 path = os.path.join(root, file)
                 with open(path, "r", encoding="utf-8") as f:
                     context += f"\n--- {path} ---\n{f.read()}\n"
     return context
 
+
+def validate_file_content(filepath: str, content: str) -> str | None:
+    """
+    Validación heurística: no hay compilador de TypeScript disponible aquí (el
+    agente solo tiene Python), así que esto NO reemplaza a `next build` en CI.
+    Pero sí atrapa gratis, sin red ni Node, el tipo exacto de corrupción que
+    causó el incidente de producción del 80b6e72: llaves/paréntesis/template
+    literals sin cerrar, o un carácter suelto al final del archivo.
+    """
+    if not filepath.endswith((".ts", ".tsx", ".js", ".jsx")):
+        return None
+
+    for open_c, close_c, label in [("{", "}", "llaves"), ("(", ")", "paréntesis"), ("[", "]", "corchetes")]:
+        if content.count(open_c) != content.count(close_c):
+            return f"{filepath}: {label} desbalanceados ({content.count(open_c)} vs {content.count(close_c)})"
+
+    if content.count("`") % 2 != 0:
+        return f"{filepath}: número impar de backticks (template literal sin cerrar)"
+
+    stripped = content.rstrip()
+    if stripped.endswith('"') or stripped.endswith("'"):
+        return f"{filepath} termina sospechosamente en una comilla suelta: {stripped[-20:]!r}"
+
+    return None
+
+
 def run_agent():
-    print("🤖 Iniciando Agente Frontend en Modo Bucle...")
-    
+    lane_label = LANE or "SIN_CARRIL"
+    print(f"🤖 Iniciando Agente Frontend en Modo Bucle (carril: {lane_label})...")
+
     while True:
         with open(TASKS_FILE, "r", encoding="utf-8") as f:
             content = f.read()
 
-        match = re.search(r'- \[ \] (.*)', content)
+        match = TASK_PATTERN.search(content)
         if not match:
-            print("🎉 No hay más tareas pendientes en tasks.md. Apagando agente.")
-            break 
+            print(f"🎉 No hay más tareas pendientes en el carril '{lane_label}'. Apagando agente.")
+            break
 
         current_task = match.group(1)
         full_line = match.group(0)
-        print(f"\n🚀 Procesando: {current_task}")
+        print(f"\n🚀 Procesando [{lane_label}]: {current_task}")
 
-        context = get_codebase_context()
+        codebase_context = get_codebase_context()
         prompt = f"""
         Eres un Tech Lead autónomo desarrollando el frontend de 'SplitPay' en Next.js (App Router), React, TypeScript y Tailwind CSS.
+        SplitPay opera bajo una regla legal inamovible de "Cero Custodia": la UI
+        nunca debe insinuar que SplitPay retiene o procesa dinero; los botones de
+        pago solo abren enlaces hacia billeteras externas (Nequi, etc.).
+
+        Tu carril de trabajo asignado es: "{lane_label}". Evita tocar archivos que
+        no correspondan a tu carril salvo que sea estrictamente necesario.
+
         Tu tarea actual a ejecutar es: "{current_task}"
-        
+
         Este es el estado actual del código (contexto):
-        {context}
-        
-        Genera el código necesario para cumplir esta tarea. Modifica el código existente (mock data) para integrarlo con la lógica descrita.
-        REGLA CRÍTICA: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. 
-        - Las claves (keys) deben ser la ruta relativa del archivo (ej. 'app/page.tsx' o 'lib/api.ts').
-        - Los valores (values) deben ser el código fuente COMPLETO de ese archivo.
+        {codebase_context}
+
+        Genera el código necesario para cumplir esta tarea.
+        REGLA CRÍTICA: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido.
+        - Las claves (keys) deben ser la ruta relativa del archivo (ej. 'components/splitpay/dashboard-view.tsx').
+        - Los valores (values) deben ser el código fuente COMPLETO de ese archivo, sin caracteres sueltos antes o después del código.
         - NO incluyas formato Markdown, no saludes, no expliques nada. Solo el JSON.
         """
 
         try:
-            # Usando explícitamente el modelo solicitado
             response = client.models.generate_content(
                 model='gemini-3.6-flash',
                 contents=prompt,
             )
-            
+
             raw_json = response.text.strip()
             if raw_json.startswith("```json"):
                 raw_json = raw_json[7:]
@@ -70,33 +114,50 @@ def run_agent():
                 raw_json = raw_json[3:]
             if raw_json.endswith("```"):
                 raw_json = raw_json[:-3]
-                
+
             files_to_update = json.loads(raw_json.strip())
-            
+
+            validation_errors = []
+            for filepath, filecontent in files_to_update.items():
+                error = validate_file_content(filepath, filecontent)
+                if error:
+                    validation_errors.append(error)
+
+            if validation_errors:
+                print("🛑 Validación de contenido falló, no se escribe nada de este lote:")
+                for err in validation_errors:
+                    print(f"   - {err}")
+                print("La tarea no se marca como completa; se reintentará en el próximo ciclo.")
+                break
+
             for filepath, filecontent in files_to_update.items():
                 os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(filecontent)
                 print(f"✅ Archivo actualizado/creado: {filepath}")
-                    
+
             new_content = content.replace(full_line, full_line.replace('[ ]', '[x]', 1), 1)
             with open(TASKS_FILE, "w", encoding="utf-8") as f:
                 f.write(new_content)
-                
+
             print("🏁 Tarea completada. Buscando la siguiente...")
-            
+
         except json.JSONDecodeError:
-            print("⚠️ Error: JSON incompleto (límite de tokens). Deteniendo bucle.")
+            print("⚠️ Error: La IA devolvió un JSON incompleto o inválido (Posible corte por límite de tokens).")
+            print("Deteniendo el bucle. La tarea no se marcó con [x] para que se reintente en el próximo ciclo.")
             break
+
         except errors.ClientError as e:
             if "429" in str(e):
-                print("🛑 Cuota gratuita agotada (Error 429). Hasta luego.")
+                print("🛑 Cuota gratuita agotada (Error 429). El agente se va a dormir hasta que se renueven los tokens.")
             else:
-                print(f"❌ Error de API: {e}")
+                print(f"❌ Error de la API de Gemini: {e}")
             break
+
         except Exception as e:
             print(f"❌ Error inesperado: {e}")
             break
+
 
 if __name__ == "__main__":
     run_agent()
