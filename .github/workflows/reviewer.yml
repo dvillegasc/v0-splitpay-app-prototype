@@ -1,0 +1,72 @@
+name: Agente Verificador SplitPay (Frontend)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review:
+    if: startsWith(github.head_ref, 'agent/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de la rama del PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Configurar identidad de Git (para posibles commits de corrección)
+        run: |
+          git config --global user.name 'splitpay-reviewer[bot]'
+          git config --global user.email 'splitpay-reviewer-bot@users.noreply.github.com'
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Configurar entorno Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Instalar dependencias del proyecto
+        run: pnpm install --frozen-lockfile
+
+      - name: Build real de Next.js (la misma verificación que hace Vercel)
+        id: build
+        run: pnpm run build > build_output.txt 2>&1
+        continue-on-error: true
+
+      - name: Lint
+        id: lint
+        run: pnpm run lint > lint_output.txt 2>&1
+        continue-on-error: true
+
+      - name: Instalar Python y dependencias del agente verificador
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar openai (cliente del agente verificador)
+        run: pip install openai
+
+      - name: Obtener el diff del PR contra main
+        run: |
+          git fetch origin main
+          git diff origin/main...HEAD > pr_diff.txt
+
+      - name: Ejecutar el Agente Verificador
+        env:
+          REVIEWER_API_KEY: ${{ secrets.REVIEWER_API_KEY }}
+          BUILD_PASSED: ${{ steps.build.outcome == 'success' }}
+          LINT_PASSED: ${{ steps.lint.outcome == 'success' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python reviewer_agent.py
