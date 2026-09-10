@@ -24,15 +24,20 @@
 - [ ] Frontend: Modificar los botones de "Pagar" para que formateen dinámicamente el enlace `nequi://pay?...` utilizando el teléfono del tesorero y el monto adeudado que retorne la API.
 
 ## Fase 6: Corrección de Contratos API y Preparación para Producción
-- [ ] Frontend: En `lib/api.ts`, corregir el valor por defecto de `BASE_URL` de `http://localhost:3000/api` a `http://localhost:8000/api`, ya que 3000 es el puerto del propio Next.js y provoca que la app se llame a sí misma cuando `NEXT_PUBLIC_API_URL` no está definida.
-- [ ] Frontend: En `lib/api.ts`, corregir el parseo de errores para leer `data?.detail` en vez de `data?.message` (FastAPI serializa sus errores como `{"detail": ...}`), contemplando que `detail` puede ser un string o un array de objetos de validación (errores 422 de Pydantic).
-- [ ] Frontend: Crear `lib/types.ts` con las interfaces TypeScript que reflejen exactamente la respuesta del backend (`UserResponse`, `HouseholdResponse`, `HouseholdMemberResponse`, `ExpenseResponse`, `ExpenseSplitResponse`, `DebtSimplificationResponse`), tipando como `string` los campos `ingreso_mensual_declarado`, `monto_total`, `monto_asignado`, `porcentaje_aplicado` y los valores del objeto `saldos_netos`, ya que FastAPI serializa `Decimal` como string.
-- [ ] Frontend: Eliminar `typescript: { ignoreBuildErrors: true }` de `next.config.mjs` para que los errores de tipos entre el frontend y el backend fallen el build en vez de pasar desapercibidos hasta runtime.
-- [ ] Frontend: Conectar el login y registro reales usando `api.post` de `lib/api.ts` contra `/auth/login` y `/auth/register`, guardando el token con `setAuthToken` ya existente.
-- [ ] Frontend: Reemplazar `CASA_MARINILLA_MEMBERS` y los ids hardcodeados (`"david" | "manuela" | "sebastian" | "alexander"`) en `lib/expense-division.ts` por los miembros reales obtenidos vía `GET /api/households/{id}/members`, usando el UUID real de usuario como identificador en vez de strings literales.
-- [ ] Frontend: Conectar `add-expense-modal.tsx` para que el envío final llame a `POST /api/expenses` con la estructura de `ExpenseCreate`, dejando `computeSplitLines` únicamente como previsualización optimista en el modal, no como fuente de verdad de los montos guardados.
-- [ ] Frontend: Configurar la variable de entorno `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend desplegado en Render.
-- [ ] Frontend: Evaluar migrar el almacenamiento del JWT de `localStorage` a una cookie `httpOnly` gestionada por el backend, ya que `localStorage` es vulnerable a robo de token vía XSS.
+- [x] Frontend: Corregir `BASE_URL` en `lib/api.ts` a `http://localhost:8000/api` (verificado en código).
+- [x] Frontend: Conectar el login y registro reales usando `api.post` de `lib/api.ts` (verificado: `context/AuthContext.tsx`, `app/login/page.tsx`, `app/register/page.tsx`).
+- [ ] [LIB] Frontend: En `lib/api.ts`, corregir el parseo de errores para leer `data?.detail` en vez de `data?.message`.
+- [ ] [LIB] Frontend: Crear `lib/types.ts` con las interfaces TypeScript que reflejen exactamente la respuesta del backend, tipando como `string` los campos `ingreso_mensual_declarado`, `monto_total`, `monto_asignado`, `porcentaje_aplicado` y los valores de `saldos_netos`.
+- [ ] [LIB] Frontend: En `context/AuthContext.tsx`, corregir el tipo de `ingreso_mensual_declarado` en la interfaz `User` de `number` a `string`.
+- [ ] [LIB] Frontend: Reemplazar `CASA_MARINILLA_MEMBERS` y los ids hardcodeados en `lib/expense-division.ts` por los miembros reales obtenidos vía `GET /api/households/{id}/members`.
+- [ ] [LIB] Frontend: Evaluar migrar el almacenamiento del JWT de `localStorage` a una cookie `httpOnly`.
+- [ ] [INFRA] Frontend: Eliminar `typescript: { ignoreBuildErrors: true }` de `next.config.mjs`.
+- [ ] [INFRA] Frontend: Configurar `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend en Render.
+- [ ] [UI] Frontend: Conectar `dashboard-view.tsx` y `wallets-list-view.tsx` a `GET /api/households/me` y `GET /api/households/{id}/members`.
+- [ ] [UI] Frontend: Conectar la vista de balances a `GET /api/households/{id}/balances`, renderizando el botón "Pagar" con el campo `nequi_deep_link` que ya retorna el backend.
+- [ ] [UI] Frontend: Conectar `add-expense-modal.tsx` a `POST /api/expenses` con el `household_id` real, dejando `computeSplitLines` solo como previsualización.
+- [ ] [UI] Frontend: Agregar el botón "Rechazar Gasto" en `expense-card.tsx` conectado a `PUT /api/expenses/{id}/reject`.
+- [ ] [UI] Frontend: Mostrar el texto "SplitPay no procesa ni retiene tu dinero; esto abrirá tu app de Nequi" antes de abrir cualquier deep link de pago.
 
 ## Fase 7: Correcciones de Tipos y Conexión Real de Vistas
 - [ ] Frontend: En `context/AuthContext.tsx`, corregir el tipo de `ingreso_mensual_declarado` en la interfaz `User` de `number` a `string`, ya que el backend lo serializa como string.
