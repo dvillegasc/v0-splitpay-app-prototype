@@ -54,8 +54,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Instalar openai (cliente del agente verificador)
-        run: pip install openai
+      - name: Instalar google-genai (cliente del agente verificador)
+        run: pip install google-genai
 
       - name: Obtener el diff del PR contra main
         run: |
