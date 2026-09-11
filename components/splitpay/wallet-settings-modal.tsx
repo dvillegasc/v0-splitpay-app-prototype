@@ -1,36 +1,103 @@
 "use client"
 
-import { useState } from "react"
-import { ShieldCheck, Trash2, UserCircle2, LogOut, AlertTriangle, Cpu, Zap, Handshake } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ShieldCheck, Trash2, UserCircle2, LogOut, AlertTriangle, Cpu, Zap, Handshake, Loader2 } from "lucide-react"
 import { Modal } from "./modal"
+import { api } from "@/lib/api"
 
 export type WalletMember = {
+  id?: string
   name: string
   initials: string
   color: string
-  role: "Administrador" | "Miembro"
+  role: "Administrador" | "Miembro" | "Tesorero" | string
+  is_treasurer?: boolean
 }
 
 export function WalletSettingsModal({
   open,
   onClose,
   walletName,
-  members,
+  members: initialMembers,
   isAdmin,
+  householdId = "casa-marinilla",
 }: {
   open: boolean
   onClose: () => void
   walletName: string
   members: WalletMember[]
   isAdmin: boolean
+  householdId?: string
 }) {
   const [confirming, setConfirming] = useState(false)
   const [deleted, setDeleted] = useState(false)
+  const [members, setMembers] = useState<WalletMember[]>(initialMembers)
+  const [loadingMembers, setLoadingMembers] = useState(false)
 
   // Smart rule toggles
   const [ruleTrust, setRuleTrust] = useState(true)
   const [ruleFixed, setRuleFixed] = useState(true)
   const [ruleUnanimous, setRuleUnanimous] = useState(false)
+
+  // Cargar miembros reales del hogar vía GET /api/households/{id}/members
+  useEffect(() => {
+    if (!open) return
+    let isMounted = true
+
+    async function fetchMembers() {
+      setLoadingMembers(true)
+      try {
+        let response: any
+        try {
+          response = await api.get(`/households/${householdId}/members`)
+        } catch {
+          response = await api.get(`/api/households/${householdId}/members`)
+        }
+
+        const data = response?.members || response?.data?.members || response?.data || response
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const defaultColors = ["#00FF66", "#8A2BE2", "#00D4FF", "#FFB020", "#FF4D6D"]
+          const mapped: WalletMember[] = data.map((m: any, idx: number) => {
+            const name = m.name || m.user_name || m.email || `Miembro ${idx + 1}`
+            const rawRole = (m.role || m.user_role || (m.is_treasurer ? "Tesorero" : "Miembro")).toString()
+            const isTreas =
+              m.is_treasurer === true ||
+              rawRole.toLowerCase().includes("tesorero") ||
+              rawRole.toLowerCase().includes("treasurer") ||
+              idx === 0
+            
+            const initials = name
+              .split(" ")
+              .map((n: string) => n[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join("")
+              .toUpperCase() || "M"
+
+            return {
+              id: m.id || m.user_id || `m-${idx}`,
+              name,
+              initials,
+              color: m.color || defaultColors[idx % defaultColors.length],
+              role: isTreas ? "Tesorero" : rawRole,
+              is_treasurer: isTreas,
+            }
+          })
+          setMembers(mapped)
+        }
+      } catch (err) {
+        console.warn("No se pudieron cargar los miembros de la API, conservando lista local:", err)
+      } finally {
+        if (isMounted) setLoadingMembers(false)
+      }
+    }
+
+    fetchMembers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [open, householdId])
 
   function handleClose() {
     setConfirming(false)
@@ -65,7 +132,7 @@ export function WalletSettingsModal({
       ) : (
         <div className="space-y-6">
           
-          {/* Smart Approval Rules (New Section) */}
+          {/* Smart Approval Rules */}
           <section aria-label="Reglas Inteligentes de Aprobación">
             <div className="flex items-center gap-2 mb-3">
               <Cpu className="h-4 w-4 text-secondary" />
@@ -120,45 +187,62 @@ export function WalletSettingsModal({
           </section>
 
           {/* Members */}
-          <section aria-label="Miembros de la cartera">
+          <section aria-label="Miembros del hogar">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs uppercase tracking-wider text-muted-foreground">
                 Miembros ({members.length})
               </h3>
-              {isAdmin && (
+              {loadingMembers ? (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  Cargando...
+                </span>
+              ) : isAdmin ? (
                 <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">
                   Vista admin
                 </span>
-              )}
+              ) : null}
             </div>
 
-            <ul className="rounded-2xl bg-background border border-border divide-y divide-border max-h-[180px] overflow-y-auto scrollbar-hide">
-              {members.map((m) => (
-                <li key={m.name} className="flex items-center gap-3 px-3 py-2.5">
-                  <span
-                    className="h-9 w-9 rounded-full inline-flex items-center justify-center text-xs font-semibold shrink-0"
-                    style={{
-                      background: `${m.color}33`,
-                      color: m.color,
-                      border: `1px solid ${m.color}55`,
-                    }}
-                    aria-hidden
-                  >
-                    {m.initials}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {m.role === "Administrador" ? "Administrador" : "Miembro"}
-                    </p>
-                  </div>
-                  {m.role === "Administrador" ? (
-                    <ShieldCheck className="h-4 w-4 text-primary" />
-                  ) : (
-                    <UserCircle2 className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </li>
-              ))}
+            <ul className="rounded-2xl bg-background border border-border divide-y divide-border max-h-[220px] overflow-y-auto scrollbar-hide">
+              {members.map((m) => {
+                const isTreas =
+                  m.is_treasurer ||
+                  m.role?.toLowerCase().includes("tesorero") ||
+                  m.role?.toLowerCase().includes("treasurer")
+
+                return (
+                  <li key={m.id || m.name} className="flex items-center gap-3 px-3 py-2.5">
+                    <span
+                      className="h-9 w-9 rounded-full inline-flex items-center justify-center text-xs font-semibold shrink-0"
+                      style={{
+                        background: `${m.color}33`,
+                        color: m.color,
+                        border: `1px solid ${m.color}55`,
+                      }}
+                      aria-hidden
+                    >
+                      {m.initials}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <p className="text-[11px] text-muted-foreground capitalize">{m.role}</p>
+                        {isTreas && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 glow-primary">
+                            Tesorero
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {isTreas ? (
+                      <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                    ) : (
+                      <UserCircle2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </section>
 
