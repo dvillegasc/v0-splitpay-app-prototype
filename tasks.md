@@ -16,7 +16,7 @@
 - [ ] [LIB] Frontend: Evaluar migrar el almacenamiento del JWT de `localStorage` a una cookie `httpOnly`.
 - [ ] [INFRA] Frontend: Eliminar `typescript: { ignoreBuildErrors: true }` de `next.config.mjs`.
 - [ ] [INFRA] Frontend: Configurar `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend en Render.
-- [ ] [UI] Frontend: Modificar el componente del listado de roomies para renderizar los miembros reales del hogar (vía `GET /api/households/{id}/members`) con su etiqueta de "Tesorero".
+- [x] [UI] Frontend: Modificar el componente del listado de roomies para renderizar los miembros reales del hogar (vía `GET /api/households/{id}/members`) con su etiqueta de "Tesorero".
 - [ ] [UI] Frontend: Conectar `dashboard-view.tsx` y `wallets-list-view.tsx` a `GET /api/households/me` y `GET /api/households/{id}/members`.
 - [ ] [UI] Frontend: Conectar `add-expense-modal.tsx` a `POST /api/expenses` con el `household_id` real, dejando `computeSplitLines` solo como previsualización.
 - [ ] [UI] Frontend: Actualizar la vista de detalles del gasto para mostrar cuánto debe pagar cada usuario según el cálculo proporcional que devuelve el backend.
