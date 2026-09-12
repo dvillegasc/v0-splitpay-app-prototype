@@ -15,6 +15,29 @@ export const apiClient: AxiosInstance = axios.create({
     },
 });
 
+export const api = apiClient;
+
+export const getAuthToken = (): string | null => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('splitpay_access_token');
+    }
+    return null;
+};
+
+export const setAuthToken = (token: string): void => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('splitpay_access_token', token);
+    }
+};
+
+export const clearAuthToken = (): void => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('splitpay_access_token');
+        localStorage.removeItem('splitpay_user_data');
+        localStorage.removeItem('splitpay_user');
+    }
+};
+
 // Interceptor de Peticiones: Inyección de JWT y protección CSRF
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
