@@ -249,6 +249,7 @@ export function WalletView({
         walletName={wallet.name}
         members={wallet.members}
         isAdmin={isAdmin}
+        householdId={wallet.id}
       />
     </div>
   )
