@@ -9,7 +9,7 @@
 - [x] Frontend: Conectar el login y registro reales usando `api.post` de `lib/api.ts`.
 
 ## Pendientes
-- [ ] [LIB] Frontend: En `lib/api.ts`, corregir el parseo de errores para leer `data?.detail` en vez de `data?.message`.
+- [x] [LIB] Frontend: En `lib/api.ts`, corregir el parseo de errores para leer `data?.detail` en vez de `data?.message`.
 - [ ] [LIB] Frontend: Crear `lib/types.ts` con las interfaces TypeScript que reflejen exactamente la respuesta del backend, tipando como `string` los campos `ingreso_mensual_declarado`, `monto_total`, `monto_asignado`, `porcentaje_aplicado` y los valores de `saldos_netos`.
 - [ ] [LIB] Frontend: En `context/AuthContext.tsx`, corregir el tipo de `ingreso_mensual_declarado` en la interfaz `User` de `number` a `string`.
 - [ ] [LIB] Frontend: Reemplazar `CASA_MARINILLA_MEMBERS` y los ids hardcodeados en `lib/expense-division.ts` por los miembros reales obtenidos vía `GET /api/households/{id}/members`.
