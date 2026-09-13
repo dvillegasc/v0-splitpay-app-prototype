@@ -105,4 +105,67 @@ def main() -> None:
 
     if not LINT_PASSED:
         gh("pr", "comment", PR_NUMBER, "--body",
-           f"⚠️ **`next lint` encontró problemas** (no bloqueante por sí solo, pero se
+           f"⚠️ **`next lint` encontró problemas** (no bloqueante por sí solo, pero se anota):\n\n"
+           f"```\n{lint_output}\n```")
+
+    fix_attempts = count_previous_fix_attempts()
+
+    response = client.models.generate_content(
+        model=REVIEWER_MODEL,
+        contents=f"{REVIEW_CHECKLIST}\n\n--- DIFF DEL PULL REQUEST ---\n{diff}",
+    )
+
+    raw = response.text.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.lower().startswith("json"):
+            raw = raw[4:]
+
+    try:
+        review = json.loads(raw.strip())
+    except json.JSONDecodeError:
+        gh("pr", "comment", PR_NUMBER, "--body",
+           "⚠️ El agente verificador no pudo interpretar la respuesta del modelo revisor. "
+           "Requiere revisión humana antes de mergear.")
+        sys.exit(0)
+
+    veredicto = review.get("veredicto")
+    comentarios = review.get("comentarios", [])
+    correcciones = review.get("correcciones", {})
+    comentarios_md = "\n".join(f"- {c}" for c in comentarios) or "- Sin observaciones."
+
+    if correcciones and fix_attempts >= MAX_AUTO_FIX_ATTEMPTS:
+        gh("pr", "comment", PR_NUMBER, "--body",
+           f"⚠️ El agente verificador ya intentó corregir este PR {fix_attempts} veces sin lograr "
+           f"la aprobación. Se detienen las correcciones automáticas; requiere revisión humana.\n\n"
+           f"Último diagnóstico del modelo:\n{comentarios_md}")
+        sys.exit(0)
+
+    if correcciones:
+        for filepath, filecontent in correcciones.items():
+            os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(filecontent)
+        run_git("add", "-A")
+        run_git("commit", "-m", "🤖 Corrección aplicada por el agente verificador")
+        run_git("push")
+        gh("pr", "comment", PR_NUMBER, "--body",
+           f"🔧 **El agente verificador aplicó una corrección directa sobre esta rama.**\n\n{comentarios_md}\n\n"
+           "Esto disparará un nuevo ciclo de build y revisión automáticamente.")
+        print("Corrección aplicada, se re-disparará la revisión al sincronizarse el PR.")
+        sys.exit(0)
+
+    if veredicto == "aprobado":
+        gh("pr", "comment", PR_NUMBER, "--body", f"✅ **Aprobado por el agente verificador.**\n\n{comentarios_md}")
+        gh("pr", "merge", PR_NUMBER, "--squash", "--delete-branch")
+        print("PR aprobado y mergeado.")
+    else:
+        gh("pr", "comment", PR_NUMBER, "--body",
+           f"🔧 **Cambios requeridos según el agente verificador.**\n\n{comentarios_md}\n\n"
+           "No se mergeó automáticamente. El agente del carril correspondiente seguirá trabajando "
+           "sobre esta misma rama en su próximo ciclo.")
+        print("PR no mergeado, requiere atención.")
+
+
+if __name__ == "__main__":
+    main()
