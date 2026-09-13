@@ -1,8 +1,11 @@
 name: Agentes Autónomos SplitPay (Frontend)
 
 on:
+  # Desfasado 20 minutos respecto al workflow del backend (minuto 0) para no
+  # lanzar 6 llamadas a la misma cuenta gratuita de Gemini en la misma
+  # ventana de un minuto.
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '20 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -14,6 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # max-parallel: 1 — evita que los 3 carriles disparen su primera
+      # llamada a Gemini casi en el mismo segundo (evidencia real: 5 de 6
+      # llamadas con 429 en una ráfaga de ~30s entre los dos repos).
+      max-parallel: 1
       matrix:
         lane: [UI, LIB, INFRA]
     concurrency:
@@ -49,6 +56,10 @@ jobs:
         run: python agent.py "${{ matrix.lane }}"
 
       - name: Verificar si hubo cambios
+        # if: always() — sin esto, si "Ejecutar Agente Gemini" falla (429 en
+        # una tarea posterior a una que sí se completó bien), este paso y los
+        # siguientes se saltan y el trabajo bueno del run se pierde.
+        if: always()
         id: check_changes
         run: |
           git add -A
@@ -59,13 +70,13 @@ jobs:
           fi
 
       - name: Confirmar y publicar la rama
-        if: steps.check_changes.outputs.changed == 'true'
+        if: always() && steps.check_changes.outputs.changed == 'true'
         run: |
           git commit -m "🤖 [${{ matrix.lane }}] Tareas completadas por el agente"
           git push --force origin agent/${{ matrix.lane }}
 
       - name: Crear el Pull Request si no existe
-        if: steps.check_changes.outputs.changed == 'true'
+        if: always() && steps.check_changes.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
