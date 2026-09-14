@@ -1,4 +1,4 @@
-name: Agentes Autónomos SplitPay (Frontend)
+name: Agentes AutÃ³nomos SplitPay (Frontend)
 
 on:
   # Desfasado 20 minutos respecto al workflow del backend (minuto 0) para no
@@ -17,9 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # max-parallel: 1 — evita que los 3 carriles disparen su primera
+      # max-parallel: 1 â€” evita que los 3 carriles disparen su primera
       # llamada a Gemini casi en el mismo segundo (evidencia real: 5 de 6
-      # llamadas con 429 en una ráfaga de ~30s entre los dos repos).
+      # llamadas con 429 en una rÃ¡faga de ~30s entre los dos repos).
       max-parallel: 1
       matrix:
         lane: [UI, LIB, INFRA]
@@ -56,8 +56,8 @@ jobs:
         run: python agent.py "${{ matrix.lane }}"
 
       - name: Verificar si hubo cambios
-        # if: always() — sin esto, si "Ejecutar Agente Gemini" falla (429 en
-        # una tarea posterior a una que sí se completó bien), este paso y los
+        # if: always() â€” sin esto, si "Ejecutar Agente Gemini" falla (429 en
+        # una tarea posterior a una que sÃ­ se completÃ³ bien), este paso y los
         # siguientes se saltan y el trabajo bueno del run se pierde.
         if: always()
         id: check_changes
@@ -72,7 +72,7 @@ jobs:
       - name: Confirmar y publicar la rama
         if: always() && steps.check_changes.outputs.changed == 'true'
         run: |
-          git commit -m "🤖 [${{ matrix.lane }}] Tareas completadas por el agente"
+          git commit -m "ðŸ¤– [${{ matrix.lane }}] Tareas completadas por el agente"
           git push --force origin agent/${{ matrix.lane }}
 
       - name: Crear el Pull Request si no existe
@@ -81,11 +81,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh pr view agent/${{ matrix.lane }} >/dev/null 2>&1; then
-            echo "El PR del carril ${{ matrix.lane }} ya existe; se actualizó con el push anterior."
+            echo "El PR del carril ${{ matrix.lane }} ya existe; se actualizÃ³ con el push anterior."
           else
             gh pr create \
               --base main \
               --head agent/${{ matrix.lane }} \
-              --title "🤖 [${{ matrix.lane }}] Tareas del agente autónomo" \
-              --body "Generado automáticamente por el agente del carril **${{ matrix.lane }}**. Lo revisará el agente verificador (incluyendo un build real de Next.js) antes de mergear a main, para evitar despliegues rotos en Vercel."
+              --title "ðŸ¤– [${{ matrix.lane }}] Tareas del agente autÃ³nomo" \
+              --body "Generado automÃ¡ticamente por el agente del carril **${{ matrix.lane }}**. Lo revisarÃ¡ el agente verificador (incluyendo un build real de Next.js) antes de mergear a main, para evitar despliegues rotos en Vercel."
           fi
