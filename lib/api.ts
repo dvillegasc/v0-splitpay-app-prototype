@@ -1,10 +1,10 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Configuración estricta que exige la inyección de la variable de entorno
-const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Configuración estricta de la URL base para peticiones a la API del backend
+const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://splitpay-backend.onrender.com';
 
-if (!NEXT_PUBLIC_API_URL) {
-    console.error("FATAL: NEXT_PUBLIC_API_URL no está definida en el entorno.");
+if (!process.env.NEXT_PUBLIC_API_URL) {
+    console.warn("NEXT_PUBLIC_API_URL no está definida de forma explícita en el entorno. Usando la URL por defecto de Render: https://splitpay-backend.onrender.com");
 }
 
 export const getAuthToken = (): string | null => {
@@ -28,7 +28,7 @@ export const clearAuthToken = (): void => {
 };
 
 export const apiClient: AxiosInstance = axios.create({
-    baseURL: NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    baseURL: NEXT_PUBLIC_API_URL,
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
