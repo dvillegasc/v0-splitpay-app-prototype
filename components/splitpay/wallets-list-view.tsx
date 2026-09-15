@@ -1,20 +1,23 @@
 "use client"
 
-import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2, Loader2, AlertCircle } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { WalletMember } from "./wallet-settings-modal"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 
 export type WalletSummary = {
   id: string
   name: string
   members: WalletMember[]
-  role: "Administrador" | "Miembro"
+  role: "Administrador" | "Miembro" | string
   balance: number
   icon: LucideIcon
   accent: string
 }
 
-export const wallets: WalletSummary[] = [
+export const defaultWallets: WalletSummary[] = [
   {
     id: "casa-marinilla",
     name: "Casa Marinilla",
@@ -45,6 +48,11 @@ export const wallets: WalletSummary[] = [
   },
 ]
 
+export const wallets = defaultWallets
+
+const iconOptions: LucideIcon[] = [Home, Trophy, Users]
+const defaultColors = ["#00FF66", "#8A2BE2", "#00D4FF", "#FFB020", "#FF4D6D"]
+
 function formatCOP(n: number) {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -58,22 +66,172 @@ export function WalletsListView({
 }: {
   onOpen: (id: string) => void
 }) {
+  const { user } = useAuth()
+  const [walletList, setWalletList] = useState<WalletSummary[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchWalletsAndMembers = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      let response: any
+      try {
+        response = await api.get("/households/me")
+      } catch {
+        response = await api.get("/api/households/me")
+      }
+
+      const data = response?.households || response?.data?.households || response?.household || response?.data?.household || response?.data || response
+      const rawHouseholds = Array.isArray(data) ? data : (data && typeof data === "object" && (data.id || data.name) ? [data] : [])
+
+      if (rawHouseholds.length === 0) {
+        setWalletList(defaultWallets)
+        return
+      }
+
+      // Para cada cartera, obtener sus miembros vía /households/{id}/members
+      const processedWallets: WalletSummary[] = await Promise.all(
+        rawHouseholds.map(async (h: any, idx: number) => {
+          const householdId = h.id || h._id || `hh-${idx}`
+          let members: WalletMember[] = []
+
+          try {
+            let membersRes: any
+            try {
+              membersRes = await api.get(`/households/${householdId}/members`)
+            } catch {
+              membersRes = await api.get(`/api/households/${householdId}/members`)
+            }
+
+            const rawMembers =
+              membersRes?.members ||
+              membersRes?.data?.members ||
+              membersRes?.data ||
+              membersRes
+
+            if (Array.isArray(rawMembers)) {
+              members = rawMembers.map((m: any, mIdx: number) => {
+                const name = m.name || m.user_name || m.email || `Miembro ${mIdx + 1}`
+                const initials = name
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "M"
+
+                const rawRole = (m.role || m.user_role || (m.is_treasurer ? "Tesorero" : "Miembro")).toString()
+
+                return {
+                  id: m.id || m.user_id || `m-${mIdx}`,
+                  name,
+                  initials,
+                  color: m.color || defaultColors[mIdx % defaultColors.length],
+                  role: rawRole,
+                  is_treasurer: m.is_treasurer,
+                }
+              })
+            }
+          } catch (mErr) {
+            console.warn(`No se pudieron obtener los miembros para la casa ${householdId}:`, mErr)
+          }
+
+          // Fallback a miembros que la casa traiga embebidos
+          if (members.length === 0 && Array.isArray(h.members)) {
+            members = h.members.map((m: any, mIdx: number) => {
+              const name = m.name || m.email || `Miembro ${mIdx + 1}`
+              const initials = name
+                .split(" ")
+                .map((n: string) => n[0])
+                .filter(Boolean)
+                .slice(0, 2)
+                .join("")
+                .toUpperCase() || "M"
+
+              return {
+                id: m.id || `m-${mIdx}`,
+                name,
+                initials,
+                color: m.color || defaultColors[mIdx % defaultColors.length],
+                role: m.role || "Miembro",
+              }
+            })
+          }
+
+          // Determinar rol del usuario actual en este hogar
+          const currentMember = members.find(
+            (m) => user?.email && m.name.toLowerCase().includes(user.name?.toLowerCase() || "")
+          )
+          const role = h.user_role || currentMember?.role || (idx === 0 ? "Administrador" : "Miembro")
+
+          return {
+            id: householdId,
+            name: h.name || h.nombre || `Cartera ${idx + 1}`,
+            role: role.toLowerCase().includes("admin") ? "Administrador" : "Miembro",
+            balance: typeof h.balance === "number" ? h.balance : typeof h.saldo === "number" ? h.saldo : 450000,
+            icon: iconOptions[idx % iconOptions.length],
+            accent: defaultColors[idx % defaultColors.length],
+            members: members.length > 0 ? members : defaultWallets[0].members,
+          }
+        })
+      )
+
+      setWalletList(processedWallets)
+    } catch (err: any) {
+      console.warn("Error al cargar las carteras desde la API:", err)
+      setError("No se pudieron conectar las carteras con el servidor. Mostrando carteras locales.")
+      setWalletList(defaultWallets)
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    fetchWalletsAndMembers()
+  }, [fetchWalletsAndMembers])
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
       <header className="px-5 pt-6 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
-        <h1 className="mt-1 text-2xl font-semibold text-balance">
-          Tus <span className="text-primary text-glow-primary">bolsas comunes</span>
-        </h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
+            <h1 className="mt-1 text-2xl font-semibold text-balance">
+              Tus <span className="text-primary text-glow-primary">bolsas comunes</span>
+            </h1>
+          </div>
+          {loading && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-card/60 px-2.5 py-1 rounded-full border border-border animate-pulse">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              <span>Cargando...</span>
+            </div>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mt-1 text-pretty">
           Toca una cartera para ver el detalle y aprobar gastos.
         </p>
       </header>
 
+      {error && (
+        <div className="mx-5 mb-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-xs text-destructive flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <section className="px-5 space-y-3" aria-label="Listado de carteras">
-        {wallets.map((w) => (
-          <WalletListCard key={w.id} wallet={w} onOpen={onOpen} />
-        ))}
+        {loading && walletList.length === 0 ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-28 rounded-2xl bg-card/40 border border-border animate-pulse p-4 flex flex-col justify-between" />
+            ))}
+          </div>
+        ) : (
+          walletList.map((w) => (
+            <WalletListCard key={w.id} wallet={w} onOpen={onOpen} />
+          ))
+        )}
 
         <button
           type="button"
@@ -127,7 +285,7 @@ function WalletListCard({
             <div className="flex -space-x-2">
               {wallet.members.slice(0, 3).map((m) => (
                 <span
-                  key={m.name}
+                  key={m.id || m.name}
                   className="h-6 w-6 rounded-full inline-flex items-center justify-center text-[10px] font-semibold ring-2 ring-card"
                   style={{
                     background: `${m.color}33`,

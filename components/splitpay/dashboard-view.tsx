@@ -17,6 +17,7 @@ import {
   Receipt,
   CheckCircle2,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import {
   PieChart,
@@ -76,15 +77,52 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
+  // Cargar datos de la casa del usuario desde GET /api/households/me y sus miembros
   const fetchHousehold = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get("/households/me")
+      let response: any
+      try {
+        response = await api.get("/households/me")
+      } catch {
+        response = await api.get("/api/households/me")
+      }
+
       const data = response?.household || response?.data?.household || response?.data || response
-      if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+      const h = Array.isArray(data) ? data[0] : data
+
+      if (h) {
+        let membersList: HouseholdMemberDB[] = h.members || []
+        const householdId = h.id || h._id
+
+        if (householdId) {
+          try {
+            let membersRes: any
+            try {
+              membersRes = await api.get(`/households/${householdId}/members`)
+            } catch {
+              membersRes = await api.get(`/api/households/${householdId}/members`)
+            }
+
+            const rawMembers =
+              membersRes?.members ||
+              membersRes?.data?.members ||
+              membersRes?.data ||
+              membersRes
+
+            if (Array.isArray(rawMembers) && rawMembers.length > 0) {
+              membersList = rawMembers
+            }
+          } catch (mErr) {
+            console.warn("No se pudieron cargar miembros de la casa desde endpoint específico:", mErr)
+          }
+        }
+
+        setHousehold({
+          ...h,
+          members: membersList,
+        })
       }
     } catch (err: any) {
       console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
@@ -109,8 +147,9 @@ export function DashboardView() {
   const dbMembers: HouseholdMemberDB[] = household?.members && household.members.length > 0
     ? household.members.map((m, idx) => ({
         ...m,
+        name: m.name || (m as any).user_name || (m as any).email || `Miembro ${idx + 1}`,
         color: m.color || defaultColors[idx % defaultColors.length],
-        aporte: typeof m.aporte === "number" ? m.aporte : 0,
+        aporte: typeof m.aporte === "number" ? m.aporte : (m as any).ingreso_mensual_declarado ? Math.round((m as any).ingreso_mensual_declarado * 0.1) : 0,
       }))
     : [
         { name: user?.name ? user.name.split(" ")[0] : "David", aporte: 720000, color: "#00FF66" },
@@ -138,6 +177,7 @@ export function DashboardView() {
   // Total de la bolsa común desde DB o calculado
   const totalBolsa =
     household?.balance ||
+    household?.saldo ||
     contributionData.reduce((acc, curr) => acc + curr.rawAporte, 0) ||
     1800000
 
@@ -146,7 +186,9 @@ export function DashboardView() {
 
   // Aporte individual del usuario actual
   const currentUserMember = dbMembers.find(
-    (m) => m.email === user?.email || m.name.toLowerCase().includes(displayName.toLowerCase())
+    (m) =>
+      (user?.email && m.email === user.email) ||
+      m.name.toLowerCase().includes(displayName.toLowerCase())
   )
   const myAporte = currentUserMember?.aporte || 720000
 
@@ -170,6 +212,13 @@ export function DashboardView() {
           </div>
         )}
       </header>
+
+      {error && (
+        <div className="mx-5 mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-xs text-destructive flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Metric cards */}
       <section className="px-5 grid grid-cols-2 gap-3" aria-label="Métricas del mes">
@@ -397,7 +446,7 @@ export function DashboardView() {
         {paidNow ? (
           <div className="mt-4 rounded-xl bg-primary/15 border border-primary/40 px-4 py-3 flex items-center gap-2 text-primary text-sm font-medium">
             <CheckCircle2 className="h-4 w-4" />
-            ¡Listo, plata enviada a la Cartera!
+            ¡Listo, pago enviado vía Nequi / Bancolombia!
           </div>
         ) : (
           <button
@@ -405,7 +454,7 @@ export function DashboardView() {
             onClick={() => setPaidNow(true)}
             className="mt-4 w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.99]"
           >
-            Saldar deuda con la Cartera · {formatCOP(48000)}
+            Saldar deuda vía Nequi/Bancolombia · {formatCOP(48000)}
           </button>
         )}
       </Modal>
