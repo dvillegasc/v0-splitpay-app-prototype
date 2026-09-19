@@ -17,7 +17,7 @@
 - [x] [INFRA] Frontend: Eliminar `typescript: { ignoreBuildErrors: true }` de `next.config.mjs`.
 - [ ] [INFRA] Frontend: Configurar `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend en Render.
 - [x] [UI] Frontend: Modificar el componente del listado de roomies para renderizar los miembros reales del hogar (vía `GET /api/households/{id}/members`) con su etiqueta de "Tesorero".
-- [ ] [UI] Frontend: Conectar `dashboard-view.tsx` y `wallets-list-view.tsx` a `GET /api/households/me` y `GET /api/households/{id}/members`.
+- [x] [UI] Frontend: Conectar `dashboard-view.tsx` y `wallets-list-view.tsx` a `GET /api/households/me` y `GET /api/households/{id}/members`.
 - [ ] [UI] Frontend: Conectar `add-expense-modal.tsx` a `POST /api/expenses` con el `household_id` real, dejando `computeSplitLines` solo como previsualización.
 - [ ] [UI] Frontend: Actualizar la vista de detalles del gasto para mostrar cuánto debe pagar cada usuario según el cálculo proporcional que devuelve el backend.
 - [ ] [UI] Frontend: Agregar el botón "Aprobar Gasto" que dispare `PUT /api/expenses/{id}/approve`.

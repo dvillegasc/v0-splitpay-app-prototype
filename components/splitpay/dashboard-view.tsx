@@ -17,6 +17,7 @@ import {
   Receipt,
   CheckCircle2,
   Loader2,
+  ExternalLink,
 } from "lucide-react"
 import {
   PieChart,
@@ -76,15 +77,40 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
-  const fetchHousehold = useCallback(async () => {
+  // Cargar datos de la casa del usuario desde GET /api/households/me y GET /api/households/{id}/members
+  const fetchHouseholdAndMembers = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get("/households/me")
+      let response: any
+      try {
+        response = await api.get("/households/me")
+      } catch {
+        response = await api.get("/api/households/me")
+      }
+
       const data = response?.household || response?.data?.household || response?.data || response
-      if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+      const activeHousehold = Array.isArray(data) ? data[0] : data
+
+      if (activeHousehold && (activeHousehold.id || activeHousehold._id)) {
+        const hhId = activeHousehold.id || activeHousehold._id
+        try {
+          let memResponse: any
+          try {
+            memResponse = await api.get(`/households/${hhId}/members`)
+          } catch {
+            memResponse = await api.get(`/api/households/${hhId}/members`)
+          }
+          const membersData = memResponse?.members || memResponse?.data?.members || memResponse?.data || memResponse
+          if (Array.isArray(membersData) && membersData.length > 0) {
+            activeHousehold.members = membersData
+          }
+        } catch (mErr) {
+          console.warn("No se pudieron cargar los miembros desde la API:", mErr)
+        }
+        setHousehold(activeHousehold)
+      } else if (activeHousehold) {
+        setHousehold(activeHousehold)
       }
     } catch (err: any) {
       console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
@@ -95,8 +121,8 @@ export function DashboardView() {
   }, [])
 
   useEffect(() => {
-    fetchHousehold()
-  }, [fetchHousehold])
+    fetchHouseholdAndMembers()
+  }, [fetchHouseholdAndMembers])
 
   // Obtener nombre del usuario para el saludo
   const displayName = user?.name
@@ -109,8 +135,9 @@ export function DashboardView() {
   const dbMembers: HouseholdMemberDB[] = household?.members && household.members.length > 0
     ? household.members.map((m, idx) => ({
         ...m,
+        name: m.name || (m as any).user_name || (m as any).email || `Miembro ${idx + 1}`,
         color: m.color || defaultColors[idx % defaultColors.length],
-        aporte: typeof m.aporte === "number" ? m.aporte : 0,
+        aporte: typeof m.aporte === "number" ? m.aporte : (m as any).monthly_contribution || 0,
       }))
     : [
         { name: user?.name ? user.name.split(" ")[0] : "David", aporte: 720000, color: "#00FF66" },
@@ -184,7 +211,7 @@ export function DashboardView() {
         <MetricCard
           label="Deuda pendiente"
           value={formatCOP(48000)}
-          delta="Toca para pagar"
+          delta="Toca para coordinar pago"
           deltaPositive
           tone="secondary"
           icon={<ArrowDownRight className="h-4 w-4" />}
@@ -364,7 +391,7 @@ export function DashboardView() {
           setTimeout(() => setPaidNow(false), 200)
         }}
         title="Deuda pendiente"
-        subtitle="A quién le debes plata ahora mismo."
+        subtitle="Saldos pendientes entre miembros."
       >
         <div className="rounded-2xl bg-background/40 border border-border p-4">
           <div className="flex items-start gap-3">
@@ -397,15 +424,19 @@ export function DashboardView() {
         {paidNow ? (
           <div className="mt-4 rounded-xl bg-primary/15 border border-primary/40 px-4 py-3 flex items-center gap-2 text-primary text-sm font-medium">
             <CheckCircle2 className="h-4 w-4" />
-            ¡Listo, plata enviada a la Cartera!
+            ¡Enlace externo abierto para completar el pago!
           </div>
         ) : (
           <button
             type="button"
-            onClick={() => setPaidNow(true)}
-            className="mt-4 w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.99]"
+            onClick={() => {
+              setPaidNow(true)
+              window.open("https://nequi.com", "_blank", "noopener,noreferrer")
+            }}
+            className="mt-4 w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-2 transition-all hover:bg-primary/90 hover:glow-primary active:scale-[0.99]"
           >
-            Saldar deuda con la Cartera · {formatCOP(48000)}
+            <ExternalLink className="h-4 w-4" />
+            Pagar en billetera externa · {formatCOP(48000)}
           </button>
         )}
       </Modal>
