@@ -7,7 +7,7 @@ export interface User {
   id?: string;
   name: string;
   email: string;
-  ingreso_mensual_declarado?: number;
+  ingreso_mensual_declarado?: string;
   [key: string]: any;
 }
 
