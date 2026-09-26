@@ -1,10 +1,13 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Configuración estricta que exige la inyección de la variable de entorno
-const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Configuración de la URL pública del backend (Render) desde variables de entorno de Vercel
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
+const NEXT_PUBLIC_API_URL = RAW_API_URL ? RAW_API_URL.replace(/\/$/, '') : '';
 
 if (!NEXT_PUBLIC_API_URL) {
-    console.error("FATAL: NEXT_PUBLIC_API_URL no está definida en el entorno.");
+    if (typeof window !== 'undefined') {
+        console.warn("ADVERTENCIA: NEXT_PUBLIC_API_URL no está definida en Vercel/Entorno. Se usará el fallback local http://localhost:8000.");
+    }
 }
 
 export const getAuthToken = (): string | null => {
