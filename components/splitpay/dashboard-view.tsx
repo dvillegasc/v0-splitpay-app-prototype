@@ -76,15 +76,40 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
+  // Cargar datos de la casa del usuario desde GET /api/households/me y sus miembros vía GET /api/households/{id}/members
   const fetchHousehold = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get("/households/me")
+      let response: any
+      try {
+        response = await api.get("/households/me")
+      } catch {
+        response = await api.get("/api/households/me")
+      }
       const data = response?.household || response?.data?.household || response?.data || response
-      if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+      let hData = Array.isArray(data) ? data[0] : data
+
+      if (hData && (hData.id || hData.household_id)) {
+        const hId = hData.id || hData.household_id
+        try {
+          let memRes: any
+          try {
+            memRes = await api.get(`/households/${hId}/members`)
+          } catch {
+            memRes = await api.get(`/api/households/${hId}/members`)
+          }
+          const membersList = memRes?.members || memRes?.data?.members || memRes?.data || memRes
+          if (Array.isArray(membersList) && membersList.length > 0) {
+            hData = { ...hData, members: membersList }
+          }
+        } catch (mErr) {
+          console.warn("No se pudieron obtener los miembros del hogar:", mErr)
+        }
+      }
+
+      if (hData) {
+        setHousehold(hData)
       }
     } catch (err: any) {
       console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
@@ -107,11 +132,23 @@ export function DashboardView() {
 
   // Miembros obtenidos de la base de datos con asignación de colores y aportes
   const dbMembers: HouseholdMemberDB[] = household?.members && household.members.length > 0
-    ? household.members.map((m, idx) => ({
-        ...m,
-        color: m.color || defaultColors[idx % defaultColors.length],
-        aporte: typeof m.aporte === "number" ? m.aporte : 0,
-      }))
+    ? household.members.map((m: any, idx: number) => {
+        const name = m.name || m.user_name || m.email || `Miembro ${idx + 1}`
+        const rawAporte = typeof m.aporte === "number"
+          ? m.aporte
+          : typeof m.income_cop === "number" || typeof m.ingreso_mensual_declarado === "number"
+          ? Math.round((m.income_cop || m.ingreso_mensual_declarado || 0) * 0.1)
+          : 0
+        return {
+          id: m.id || m.user_id,
+          name,
+          email: m.email,
+          incomeCOP: m.income_cop || m.ingreso_mensual_declarado,
+          color: m.color || defaultColors[idx % defaultColors.length],
+          aporte: rawAporte,
+          role: m.role || m.user_role,
+        }
+      })
     : [
         { name: user?.name ? user.name.split(" ")[0] : "David", aporte: 720000, color: "#00FF66" },
         { name: "Sebastián", aporte: 630000, color: "#8A2BE2" },
