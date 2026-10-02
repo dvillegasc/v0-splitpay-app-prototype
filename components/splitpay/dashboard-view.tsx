@@ -76,15 +76,30 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
+  // Cargar datos de la casa del usuario desde GET /api/households/me y sus miembros
   const fetchHousehold = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const response = await api.get("/households/me")
-      const data = response?.household || response?.data?.household || response?.data || response
-      if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+      const rawData = response?.households || response?.household || response?.data?.households || response?.data?.household || response?.data || response
+      const hData = Array.isArray(rawData) ? rawData[0] : rawData
+
+      if (hData) {
+        let membersData = hData.members || []
+        const hId = hData.id || hData.household_id
+        if (hId && (!membersData || membersData.length === 0)) {
+          try {
+            const membersResp = await api.get(`/households/${hId}/members`)
+            membersData = membersResp?.members || membersResp?.data?.members || membersResp?.data || membersResp || []
+          } catch (mErr) {
+            console.warn("No se pudieron cargar los miembros del hogar desde /api/households/{id}/members:", mErr)
+          }
+        }
+        setHousehold({
+          ...hData,
+          members: Array.isArray(membersData) ? membersData : []
+        })
       }
     } catch (err: any) {
       console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
