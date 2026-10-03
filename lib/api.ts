@@ -1,11 +1,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Configuración estricta que exige la inyección de la variable de entorno
-const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!NEXT_PUBLIC_API_URL) {
-    console.error("FATAL: NEXT_PUBLIC_API_URL no está definida en el entorno.");
-}
+// Configuración de la variable de entorno para la URL pública del backend en Render o Vercel
+const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://splitpay-backend.onrender.com';
 
 export const getAuthToken = (): string | null => {
     if (typeof window !== 'undefined') {
@@ -28,7 +24,7 @@ export const clearAuthToken = (): void => {
 };
 
 export const apiClient: AxiosInstance = axios.create({
-    baseURL: NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    baseURL: NEXT_PUBLIC_API_URL,
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
@@ -80,7 +76,6 @@ apiClient.interceptors.response.use(
             const status = error.response.status;
             const data = error.response.data as any;
 
-            // Corregir el parseo de errores para leer `data?.detail` en vez de `data?.message`
             const detailMessage =
                 typeof data?.detail === 'string'
                     ? data.detail
@@ -102,19 +97,16 @@ apiClient.interceptors.response.use(
             // Gestión de token expirado o inválido
             if (status === 401) {
                 if (typeof window !== 'undefined') {
-                    // Prevenir bucles de redirección si ya está en login
                     if (!window.location.pathname.includes('/login')) {
                         console.warn("Autenticación revocada. Purgando sesión.");
                         clearAuthToken();
                         
-                        // Emitir un evento para que los componentes React desmonten vistas sensibles
                         window.dispatchEvent(new Event('auth-logout'));
                         window.location.href = '/login?session_expired=true';
                     }
                 }
             }
             
-            // Logueo estructurado de errores del servidor para monitoreo
             if (status >= 500) {
                 console.error(`Error Crítico del Servidor: ${error.config?.url}`, data);
             }
