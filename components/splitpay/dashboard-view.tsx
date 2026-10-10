@@ -76,15 +76,54 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
+  // Cargar datos de la casa del usuario desde GET /api/households/me y GET /api/households/{id}/members
   const fetchHousehold = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get("/households/me")
-      const data = response?.household || response?.data?.household || response?.data || response
-      if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+      let response: any
+      try {
+        response = await api.get("/households/me")
+      } catch {
+        response = await api.get("/api/households/me")
+      }
+
+      const data = response?.households || response?.household || response?.data?.households || response?.data?.household || response?.data || response
+      let activeHousehold: HouseholdDB | null = null
+
+      if (Array.isArray(data)) {
+        activeHousehold = data[0] || null
+      } else if (data && typeof data === "object") {
+        activeHousehold = data
+      }
+
+      if (activeHousehold && activeHousehold.id) {
+        try {
+          let mRes: any
+          try {
+            mRes = await api.get(`/households/${activeHousehold.id}/members`)
+          } catch {
+            mRes = await api.get(`/api/households/${activeHousehold.id}/members`)
+          }
+          const membersData = mRes?.members || mRes?.data?.members || mRes?.data || mRes
+          if (Array.isArray(membersData) && membersData.length > 0) {
+            activeHousehold.members = membersData.map((m: any, idx: number) => ({
+              id: m.id || m.user_id,
+              name: m.name || m.user_name || m.email || `Miembro ${idx + 1}`,
+              email: m.email,
+              incomeCOP: m.incomeCOP || m.ingreso_mensual_declarado || 0,
+              aporte: typeof m.aporte === "number" ? m.aporte : typeof m.amount === "number" ? m.amount : 0,
+              color: m.color || defaultColors[idx % defaultColors.length],
+              role: m.role || (m.is_treasurer ? "Tesorero" : "Miembro"),
+            }))
+          }
+        } catch (mErr) {
+          console.warn("No se pudieron obtener miembros del hogar:", mErr)
+        }
+      }
+
+      if (activeHousehold) {
+        setHousehold(activeHousehold)
       }
     } catch (err: any) {
       console.warn("No se pudo obtener el hogar desde /api/households/me:", err)

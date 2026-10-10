@@ -1,8 +1,10 @@
 "use client"
 
-import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2, Loader2 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { WalletMember } from "./wallet-settings-modal"
+import { api } from "@/lib/api"
 
 export type WalletSummary = {
   id: string
@@ -13,6 +15,8 @@ export type WalletSummary = {
   icon: LucideIcon
   accent: string
 }
+
+const defaultColors = ["#00FF66", "#8A2BE2", "#00D4FF", "#FFB020", "#FF4D6D"]
 
 export const wallets: WalletSummary[] = [
   {
@@ -58,20 +62,133 @@ export function WalletsListView({
 }: {
   onOpen: (id: string) => void
 }) {
+  const [walletsList, setWalletsList] = useState<WalletSummary[]>(wallets)
+  const [loading, setLoading] = useState(true)
+
+  const fetchHouseholds = useCallback(async () => {
+    setLoading(true)
+    try {
+      let response: any
+      try {
+        response = await api.get("/households/me")
+      } catch {
+        response = await api.get("/api/households/me")
+      }
+
+      const data = response?.households || response?.household || response?.data?.households || response?.data?.household || response?.data || response
+      const rawList = Array.isArray(data) ? data : data && typeof data === "object" ? [data] : []
+
+      if (rawList.length > 0) {
+        const mappedList: WalletSummary[] = await Promise.all(
+          rawList.map(async (h: any, idx: number) => {
+            const id = h.id || h.slug || `house-${idx}`
+            const name = h.name || h.title || `Casa ${idx + 1}`
+            const balance = typeof h.balance === "number" ? h.balance : typeof h.saldo === "number" ? h.saldo : 450000
+            const rawRole = (h.role || h.user_role || (h.is_admin ? "Administrador" : "Miembro")).toString()
+            const role: "Administrador" | "Miembro" = rawRole.toLowerCase().includes("admin") ? "Administrador" : "Miembro"
+
+            let members: WalletMember[] = []
+            if (Array.isArray(h.members) && h.members.length > 0) {
+              members = h.members.map((m: any, mIdx: number) => {
+                const mName = m.name || m.user_name || m.email || `Miembro ${mIdx + 1}`
+                const initials = mName
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "M"
+                return {
+                  id: m.id || m.user_id,
+                  name: mName,
+                  initials,
+                  color: m.color || defaultColors[mIdx % defaultColors.length],
+                  role: m.role || "Miembro",
+                }
+              })
+            } else if (id) {
+              try {
+                let mRes: any
+                try {
+                  mRes = await api.get(`/households/${id}/members`)
+                } catch {
+                  mRes = await api.get(`/api/households/${id}/members`)
+                }
+                const mData = mRes?.members || mRes?.data?.members || mRes?.data || mRes
+                if (Array.isArray(mData) && mData.length > 0) {
+                  members = mData.map((m: any, mIdx: number) => {
+                    const mName = m.name || m.user_name || m.email || `Miembro ${mIdx + 1}`
+                    const initials = mName
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase() || "M"
+                    return {
+                      id: m.id || m.user_id,
+                      name: mName,
+                      initials,
+                      color: m.color || defaultColors[mIdx % defaultColors.length],
+                      role: m.role || "Miembro",
+                    }
+                  })
+                }
+              } catch (mErr) {
+                console.warn(`No se pudieron obtener miembros para hogar ${id}:`, mErr)
+              }
+            }
+
+            if (members.length === 0) {
+              members = wallets[idx % wallets.length]?.members || wallets[0].members
+            }
+
+            return {
+              id,
+              name,
+              role,
+              balance,
+              icon: idx % 2 === 0 ? Home : Trophy,
+              accent: defaultColors[idx % defaultColors.length],
+              members,
+            }
+          })
+        )
+        setWalletsList(mappedList)
+      }
+    } catch (err) {
+      console.warn("No se pudieron cargar las carteras desde la API, usando datos por defecto:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchHouseholds()
+  }, [fetchHouseholds])
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
-      <header className="px-5 pt-6 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
-        <h1 className="mt-1 text-2xl font-semibold text-balance">
-          Tus <span className="text-primary text-glow-primary">bolsas comunes</span>
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1 text-pretty">
-          Toca una cartera para ver el detalle y aprobar gastos.
-        </p>
+      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
+          <h1 className="mt-1 text-2xl font-semibold text-balance">
+            Tus <span className="text-primary text-glow-primary">bolsas comunes</span>
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 text-pretty">
+            Toca una cartera para ver el detalle y aprobar gastos.
+          </p>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-card/60 px-2.5 py-1 rounded-full border border-border animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span>Cargando...</span>
+          </div>
+        )}
       </header>
 
       <section className="px-5 space-y-3" aria-label="Listado de carteras">
-        {wallets.map((w) => (
+        {walletsList.map((w) => (
           <WalletListCard key={w.id} wallet={w} onOpen={onOpen} />
         ))}
 
