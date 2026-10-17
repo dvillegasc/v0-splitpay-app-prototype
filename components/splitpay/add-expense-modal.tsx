@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Send,
   Tag,
@@ -14,20 +14,18 @@ import {
   Users,
   Check,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { Modal } from "./modal"
 import {
-  CASA_MARINILLA_MEMBERS,
   computeSplitLines,
   formatCOP,
   type DivisionStrategy,
   validateCustomSplit,
 } from "@/lib/expense-division"
-
-const wallets = [{ id: "casa-marinilla", name: "Casa Marinilla" }]
+import { api, parseApiError } from "@/lib/api"
 
 function parseCOPInput(raw: string) {
-  // keep digits only
   const n = Number(raw.replace(/[^0-9]/g, ""))
   return Number.isFinite(n) ? n : 0
 }
@@ -35,24 +33,74 @@ function parseCOPInput(raw: string) {
 export function AddExpenseModal({
   open,
   onClose,
+  householdId,
 }: {
   open: boolean
   onClose: () => void
+  householdId?: string
 }) {
   const [expenseType, setExpenseType] = useState<"direct" | "reimbursement">("direct")
   const [amount, setAmount] = useState("")
   const [concept, setConcept] = useState("")
-  const [walletId, setWalletId] = useState(wallets[0].id)
+  
+  const [walletsList, setWalletsList] = useState<{ id: string; name: string }[]>([
+    { id: "casa-marinilla", name: "Casa Marinilla" },
+  ])
+  const [walletId, setWalletId] = useState(householdId || "casa-marinilla")
 
-  // Division
+  // Division strategy for UI preview
   const [divisionStrategy, setDivisionStrategy] = useState<DivisionStrategy>("proportional")
   const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({})
 
-  // Submit micro-interactions
+  // Submit & Error state
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success">("idle")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Fetch real households when modal opens
+  useEffect(() => {
+    if (!open) return
+
+    let isMounted = true
+    async function fetchWallets() {
+      try {
+        let res: any
+        try {
+          res = await api.get("/households/me")
+        } catch {
+          res = await api.get("/api/households/me")
+        }
+
+        const data = res?.households || res?.household || res?.data?.households || res?.data?.household || res?.data || res
+        const list: any[] = Array.isArray(data) ? data : data ? [data] : []
+
+        if (isMounted && list.length > 0) {
+          const mapped = list.map((h: any, idx: number) => ({
+            id: h.id || h.household_id || `household-${idx}`,
+            name: h.name || `Cartera ${idx + 1}`,
+          }))
+          setWalletsList(mapped)
+
+          if (householdId) {
+            setWalletId(householdId)
+          } else if (mapped[0]?.id) {
+            setWalletId(mapped[0].id)
+          }
+        }
+      } catch (err) {
+        console.warn("Error fetching households in AddExpenseModal:", err)
+      }
+    }
+
+    fetchWallets()
+
+    return () => {
+      isMounted = false
+    }
+  }, [open, householdId])
 
   const amountCOP = useMemo(() => parseCOPInput(amount), [amount])
 
+  // Visual preview of split breakdown
   const splitLines = useMemo(() => {
     return computeSplitLines({
       totalCOP: amountCOP,
@@ -68,10 +116,11 @@ export function AddExpenseModal({
 
   function handleClose() {
     setSubmitState("idle")
+    setErrorMessage(null)
     setExpenseType("direct")
     setAmount("")
     setConcept("")
-    setWalletId(wallets[0].id)
+    setWalletId(householdId || (walletsList[0]?.id ?? "casa-marinilla"))
     setDivisionStrategy("proportional")
     setCustomAmounts({})
     onClose()
@@ -81,13 +130,33 @@ export function AddExpenseModal({
     e.preventDefault()
     if (submitState !== "idle") return
 
-    // guard custom validity
     if (divisionStrategy === "custom" && !customValidation.valid) return
 
     setSubmitState("loading")
-    // fake async to make it feel alive (later: call BaaS)
-    await new Promise((r) => setTimeout(r, 650))
-    setSubmitState("success")
+    setErrorMessage(null)
+
+    try {
+      const payload = {
+        household_id: walletId,
+        amount: amountCOP,
+        description: concept,
+        concept,
+        payment_type: expenseType,
+        division_strategy: divisionStrategy,
+      }
+
+      try {
+        await api.post("/expenses", payload)
+      } catch {
+        await api.post("/api/expenses", payload)
+      }
+
+      setSubmitState("success")
+    } catch (err: any) {
+      const msg = parseApiError(err)
+      setErrorMessage(msg)
+      setSubmitState("idle")
+    }
   }
 
   const canSubmit =
@@ -116,6 +185,13 @@ export function AddExpenseModal({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMessage && (
+            <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-xs text-destructive text-balance">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* Hybrid Payment Model Tabs */}
           <div className="flex bg-background/50 p-1.5 rounded-xl border border-border">
             <button
@@ -206,7 +282,7 @@ export function AddExpenseModal({
               Cartera
             </label>
             <div className="mt-1.5 grid grid-cols-1 gap-2">
-              {wallets.map((w) => {
+              {walletsList.map((w) => {
                 const active = walletId === w.id
                 return (
                   <button
@@ -239,7 +315,7 @@ export function AddExpenseModal({
           {/* Division strategy selector */}
           <div>
             <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              División del gasto
+              División del gasto (Previsualización)
             </label>
 
             <div className="mt-1.5 flex bg-background/50 p-1.5 rounded-xl border border-border">
@@ -281,10 +357,10 @@ export function AddExpenseModal({
               </button>
             </div>
 
-            {/* Breakdown */}
+            {/* Previsualización del desglose */}
             <div className="mt-3 rounded-2xl bg-card border border-border p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-foreground/90">Desglose</p>
+                <p className="text-xs font-semibold text-foreground/90">Desglose estimado</p>
                 <p className="text-[11px] text-muted-foreground tabular-nums">
                   Total: <span className="text-foreground">{formatCOP(amountCOP)}</span>
                 </p>
@@ -352,7 +428,7 @@ export function AddExpenseModal({
             </div>
           </div>
 
-          {/* Primary action with micro-interactions */}
+          {/* Primary action button */}
           <button
             type="submit"
             disabled={!canSubmit || submitState !== "idle"}

@@ -64,7 +64,11 @@ export default function Page() {
         onAddExpense={() => setAddExpenseOpen(true)}
       />
 
-      <AddExpenseModal open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} />
+      <AddExpenseModal
+        open={addExpenseOpen}
+        onClose={() => setAddExpenseOpen(false)}
+        householdId={openWalletId || undefined}
+      />
     </PhoneFrame>
   )
 }

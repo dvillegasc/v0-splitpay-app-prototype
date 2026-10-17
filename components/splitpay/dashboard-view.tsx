@@ -76,15 +76,47 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
+  // Cargar datos de la casa del usuario desde GET /api/households/me y GET /api/households/{id}/members
   const fetchHousehold = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get("/households/me")
-      const data = response?.household || response?.data?.household || response?.data || response
+      let data: any
+      try {
+        const response = await api.get("/households/me")
+        data = response?.households || response?.household || response?.data?.households || response?.data?.household || response?.data || response
+      } catch {
+        const response = await api.get("/api/households/me")
+        data = response?.households || response?.household || response?.data?.households || response?.data?.household || response?.data || response
+      }
+
       if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+        const singleHousehold = Array.isArray(data) ? data[0] : data
+        if (singleHousehold && singleHousehold.id) {
+          try {
+            let membersRes: any
+            try {
+              membersRes = await api.get(`/households/${singleHousehold.id}/members`)
+            } catch {
+              membersRes = await api.get(`/api/households/${singleHousehold.id}/members`)
+            }
+            const membersList = membersRes?.members || membersRes?.data?.members || membersRes?.data || membersRes
+            if (Array.isArray(membersList) && membersList.length > 0) {
+              singleHousehold.members = membersList.map((m: any, idx: number) => ({
+                id: m.id || m.user_id,
+                name: m.name || m.user_name || m.email || `Miembro ${idx + 1}`,
+                email: m.email,
+                incomeCOP: m.incomeCOP || m.income_cop || m.ingreso_mensual_declarado || 0,
+                aporte: typeof m.aporte === "number" ? m.aporte : (m.incomeCOP || m.income_cop ? Math.round((m.incomeCOP || m.income_cop) * 0.05) : 0),
+                color: m.color || defaultColors[idx % defaultColors.length],
+                role: m.role || (m.is_treasurer ? "Tesorero" : "Miembro"),
+              }))
+            }
+          } catch (mErr) {
+            console.warn("No se pudieron cargar los miembros desde /api/households/{id}/members:", mErr)
+          }
+        }
+        setHousehold(singleHousehold)
       }
     } catch (err: any) {
       console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
@@ -170,6 +202,12 @@ export function DashboardView() {
           </div>
         )}
       </header>
+
+      {error && (
+        <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-destructive/10 border border-destructive/30 text-xs text-destructive text-balance">
+          {error}
+        </div>
+      )}
 
       {/* Metric cards */}
       <section className="px-5 grid grid-cols-2 gap-3" aria-label="Métricas del mes">
