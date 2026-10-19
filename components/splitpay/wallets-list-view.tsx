@@ -1,18 +1,22 @@
 "use client"
 
-import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ChevronRight, Home, Trophy, Users, ShieldCheck, UserCircle2, Loader2, Wallet as WalletIcon } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { WalletMember } from "./wallet-settings-modal"
+import { api } from "@/lib/api"
 
 export type WalletSummary = {
   id: string
   name: string
   members: WalletMember[]
-  role: "Administrador" | "Miembro"
+  role: "Administrador" | "Miembro" | string
   balance: number
   icon: LucideIcon
   accent: string
 }
+
+const defaultColors = ["#00FF66", "#8A2BE2", "#00D4FF", "#FFB020", "#FF4D6D"]
 
 export const wallets: WalletSummary[] = [
   {
@@ -53,25 +57,130 @@ function formatCOP(n: number) {
   }).format(n)
 }
 
+function getInitials(name?: string): string {
+  if (!name) return "M"
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "M"
+}
+
 export function WalletsListView({
   onOpen,
 }: {
   onOpen: (id: string) => void
 }) {
+  const [walletsList, setWalletsList] = useState<WalletSummary[]>(wallets)
+  const [loading, setLoading] = useState(true)
+
+  // Cargar carteras vía GET /api/households/me y sus miembros vía GET /api/households/{id}/members
+  const fetchHouseholds = useCallback(async () => {
+    setLoading(true)
+    try {
+      let response: any
+      try {
+        response = await api.get("/api/households/me")
+      } catch {
+        response = await api.get("/households/me")
+      }
+
+      const raw = response?.households || response?.data?.households || response?.household || response?.data?.household || response?.data || response
+      const householdsArray = Array.isArray(raw) ? raw : raw ? [raw] : []
+
+      if (householdsArray.length > 0) {
+        const mappedWallets = await Promise.all(
+          householdsArray.map(async (h: any, idx: number) => {
+            const householdId = h.id || `household-${idx}`
+            let members: WalletMember[] = []
+
+            if (h.id) {
+              try {
+                let mRes: any
+                try {
+                  mRes = await api.get(`/api/households/${h.id}/members`)
+                } catch {
+                  mRes = await api.get(`/households/${h.id}/members`)
+                }
+                const rawMembers = mRes?.members || mRes?.data?.members || (Array.isArray(mRes) ? mRes : [])
+                if (Array.isArray(rawMembers) && rawMembers.length > 0) {
+                  members = rawMembers.map((m: any, mIdx: number) => ({
+                    id: m.id || m.user_id,
+                    name: m.name || m.user_name || m.email || `Miembro ${mIdx + 1}`,
+                    initials: getInitials(m.name || m.user_name || m.email),
+                    color: m.color || defaultColors[mIdx % defaultColors.length],
+                    role: m.role || m.user_role || (m.is_treasurer ? "Tesorero" : "Miembro"),
+                    is_treasurer: m.is_treasurer,
+                  }))
+                }
+              } catch (mErr) {
+                console.warn(`No se pudieron obtener miembros para ${h.id}:`, mErr)
+              }
+            }
+
+            // Fallback de miembros si la API devuelve lista vacía
+            if (members.length === 0 && h.members && Array.isArray(h.members)) {
+              members = h.members.map((m: any, mIdx: number) => ({
+                id: m.id,
+                name: m.name || `Miembro ${mIdx + 1}`,
+                initials: getInitials(m.name),
+                color: m.color || defaultColors[mIdx % defaultColors.length],
+                role: m.role || "Miembro",
+              }))
+            }
+
+            const walletName = h.name || h.household_name || `Cartera ${idx + 1}`
+            const isTrophy = walletName.toLowerCase().includes("torneo") || walletName.toLowerCase().includes("baloncesto")
+
+            return {
+              id: householdId,
+              name: walletName,
+              role: h.role || h.user_role || "Administrador",
+              balance: typeof h.balance === "number" ? h.balance : typeof h.total_balance === "number" ? h.total_balance : 450000,
+              icon: isTrophy ? Trophy : Home,
+              accent: defaultColors[idx % defaultColors.length],
+              members: members.length > 0 ? members : wallets[0].members,
+            } satisfies WalletSummary
+          })
+        )
+
+        setWalletsList(mappedWallets)
+      }
+    } catch (err) {
+      console.warn("No se pudieron cargar los hogares de la API, usando lista local:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchHouseholds()
+  }, [fetchHouseholds])
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
-      <header className="px-5 pt-6 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
-        <h1 className="mt-1 text-2xl font-semibold text-balance">
-          Tus <span className="text-primary text-glow-primary">bolsas comunes</span>
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1 text-pretty">
-          Toca una cartera para ver el detalle y aprobar gastos.
-        </p>
+      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Mis Carteras</p>
+          <h1 className="mt-1 text-2xl font-semibold text-balance">
+            Tus <span className="text-primary text-glow-primary">bolsas comunes</span>
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 text-pretty">
+            Toca una cartera para ver el detalle y aprobar gastos.
+          </p>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-card/60 px-2.5 py-1 rounded-full border border-border animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span>Sincronizando...</span>
+          </div>
+        )}
       </header>
 
       <section className="px-5 space-y-3" aria-label="Listado de carteras">
-        {wallets.map((w) => (
+        {walletsList.map((w) => (
           <WalletListCard key={w.id} wallet={w} onOpen={onOpen} />
         ))}
 

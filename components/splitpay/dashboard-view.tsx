@@ -76,18 +76,51 @@ export function DashboardView() {
   const [openMetric, setOpenMetric] = useState<null | "contributions" | "debts">(null)
   const [paidNow, setPaidNow] = useState(false)
 
-  // Cargar datos de la casa del usuario desde GET /api/households/me
+  // Cargar datos de la casa del usuario desde GET /api/households/me y sus miembros desde GET /api/households/{id}/members
   const fetchHousehold = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get("/households/me")
-      const data = response?.household || response?.data?.household || response?.data || response
-      if (data) {
-        setHousehold(Array.isArray(data) ? data[0] : data)
+      let data: any
+      try {
+        data = await api.get("/api/households/me")
+      } catch {
+        data = await api.get("/households/me")
+      }
+      const rawHousehold = data?.household || data?.data?.household || (Array.isArray(data) ? data[0] : data?.data || data)
+      if (rawHousehold && typeof rawHousehold === "object") {
+        const selectedHousehold: HouseholdDB = Array.isArray(rawHousehold) ? rawHousehold[0] : rawHousehold
+        
+        // Si el hogar tiene ID, intentamos consultar sus miembros desde /api/households/{id}/members
+        if (selectedHousehold?.id) {
+          try {
+            let membersData: any
+            try {
+              membersData = await api.get(`/api/households/${selectedHousehold.id}/members`)
+            } catch {
+              membersData = await api.get(`/households/${selectedHousehold.id}/members`)
+            }
+            const membersList = membersData?.members || membersData?.data?.members || (Array.isArray(membersData) ? membersData : null)
+            if (membersList && Array.isArray(membersList) && membersList.length > 0) {
+              selectedHousehold.members = membersList.map((m: any, idx: number) => ({
+                id: m.id || m.user_id,
+                name: m.name || m.user_name || m.email || `Miembro ${idx + 1}`,
+                email: m.email,
+                incomeCOP: m.incomeCOP || m.ingreso_mensual_declarado || 0,
+                aporte: typeof m.aporte === "number" ? m.aporte : (m.amount || 0),
+                color: m.color || defaultColors[idx % defaultColors.length],
+                role: m.role || m.user_role || "Miembro",
+              }))
+            }
+          } catch (mErr) {
+            console.warn("No se pudieron cargar los miembros de la casa:", mErr)
+          }
+        }
+
+        setHousehold(selectedHousehold)
       }
     } catch (err: any) {
-      console.warn("No se pudo obtener el hogar desde /api/households/me:", err)
+      console.warn("No se pudo obtener el hogar desde la API:", err)
       setError("No se pudieron cargar los datos actualizados de la casa.")
     } finally {
       setLoading(false)
