@@ -13,9 +13,9 @@
 - [ ] [LIB] Frontend: Crear `lib/types.ts` con las interfaces TypeScript que reflejen exactamente la respuesta del backend, tipando como `string` los campos `ingreso_mensual_declarado`, `monto_total`, `monto_asignado`, `porcentaje_aplicado` y los valores de `saldos_netos`.
 - [ ] [LIB] Frontend: En `context/AuthContext.tsx`, corregir el tipo de `ingreso_mensual_declarado` en la interfaz `User` de `number` a `string`.
 - [ ] [LIB] Frontend: Reemplazar `CASA_MARINILLA_MEMBERS` y los ids hardcodeados en `lib/expense-division.ts` por los miembros reales obtenidos vía `GET /api/households/{id}/members`.
-- [ ] [LIB] Frontend: Evaluar migrar el almacenamiento del JWT de `localStorage` a una cookie `httpOnly`.
+- [h] [LIB] Frontend: Evaluar migrar el almacenamiento del JWT de `localStorage` a una cookie `httpOnly`.
 - [x] [INFRA] Frontend: Eliminar `typescript: { ignoreBuildErrors: true }` de `next.config.mjs`.
-- [ ] [INFRA] Frontend: Configurar `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend en Render.
+- [h] [INFRA] Frontend: Configurar `NEXT_PUBLIC_API_URL` en Vercel apuntando a la URL pública del backend en Render.
 - [x] [UI] Frontend: Modificar el componente del listado de roomies para renderizar los miembros reales del hogar (vía `GET /api/households/{id}/members`) con su etiqueta de "Tesorero".
 - [ ] [UI] Frontend: Conectar `dashboard-view.tsx` y `wallets-list-view.tsx` a `GET /api/households/me` y `GET /api/households/{id}/members`.
 - [ ] [UI] Frontend: Conectar `add-expense-modal.tsx` a `POST /api/expenses` con el `household_id` real, dejando `computeSplitLines` solo como previsualización.
