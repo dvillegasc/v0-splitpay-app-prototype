@@ -1,91 +1,58 @@
-name: Agentes AutÃ³nomos SplitPay (Frontend)
+name: Agente Autónomo SplitPay (Frontend)
 
 on:
-  # Desfasado 20 minutos respecto al workflow del backend (minuto 0) para no
-  # lanzar 6 llamadas a la misma cuenta gratuita de Gemini en la misma
-  # ventana de un minuto.
   schedule:
     - cron: '20 */6 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: write
+
+concurrency:
+  group: splitpay-frontend-agent
+  cancel-in-progress: false
 
 jobs:
-  run-agents:
+  agent:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      # max-parallel: 1 â€” evita que los 3 carriles disparen su primera
-      # llamada a Gemini casi en el mismo segundo (evidencia real: 5 de 6
-      # llamadas con 429 en una rÃ¡faga de ~30s entre los dos repos).
-      max-parallel: 1
-      matrix:
-        lane: [UI, LIB, INFRA]
-    concurrency:
-      group: splitpay-frontend-agent-${{ matrix.lane }}
-      cancel-in-progress: false
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: "1"
     steps:
-      - name: Checkout del repositorio
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Configurar entorno Python
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Dependencias del proyecto
+        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+
+      - name: Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Instalar dependencias del agente
+      - name: Cliente de Gemini
         run: pip install google-genai
 
-      - name: Configurar identidad de Git
+      - name: Identidad de Git
         run: |
-          git config --global user.name 'splitpay-agent[bot]'
-          git config --global user.email 'splitpay-agent-bot@users.noreply.github.com'
+          git config user.name 'splitpay-agent[bot]'
+          git config user.email 'splitpay-agent-bot@users.noreply.github.com'
 
-      - name: Crear/reiniciar la rama del carril desde main
-        run: |
-          git fetch origin main
-          git checkout -B agent/${{ matrix.lane }} origin/main
-
-      - name: Ejecutar Agente Gemini (carril ${{ matrix.lane }})
+      - name: Ejecutar el agente
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python agent.py "${{ matrix.lane }}"
-
-      - name: Verificar si hubo cambios
-        # if: always() â€” sin esto, si "Ejecutar Agente Gemini" falla (429 en
-        # una tarea posterior a una que sÃ­ se completÃ³ bien), este paso y los
-        # siguientes se saltan y el trabajo bueno del run se pierde.
-        if: always()
-        id: check_changes
-        run: |
-          git add -A
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Confirmar y publicar la rama
-        if: always() && steps.check_changes.outputs.changed == 'true'
-        run: |
-          git commit -m "ðŸ¤– [${{ matrix.lane }}] Tareas completadas por el agente"
-          git push --force origin agent/${{ matrix.lane }}
-
-      - name: Crear el Pull Request si no existe
-        if: always() && steps.check_changes.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh pr view agent/${{ matrix.lane }} >/dev/null 2>&1; then
-            echo "El PR del carril ${{ matrix.lane }} ya existe; se actualizÃ³ con el push anterior."
-          else
-            gh pr create \
-              --base main \
-              --head agent/${{ matrix.lane }} \
-              --title "ðŸ¤– [${{ matrix.lane }}] Tareas del agente autÃ³nomo" \
-              --body "Generado automÃ¡ticamente por el agente del carril **${{ matrix.lane }}**. Lo revisarÃ¡ el agente verificador (incluyendo un build real de Next.js) antes de mergear a main, para evitar despliegues rotos en Vercel."
-          fi
+          GEMINI_API_KEY_2: ${{ secrets.REVIEWER_API_KEY }}
+        run: python agent.py
